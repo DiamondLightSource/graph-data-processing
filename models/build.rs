@@ -21,8 +21,6 @@ const TABLES_SPECS: &[&Table] = &[&Table {
         "dataCollectionFileAttachmentId",
         "dataCollectionId",
         "fileFullPath",
-        "fileType",
-        "createTime"
     ],
 }];
 
