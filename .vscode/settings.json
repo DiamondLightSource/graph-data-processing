@@ -1,0 +1,36 @@
+{
+    "sqltools.connections": [
+        {
+            "mysqlOptions": {
+                "authProtocol": "default",
+                "enableSsl": "Disabled"
+            },
+            "previewLimit": 50,
+            "server": "ispyb",
+            "port": 3306,
+            "driver": "MariaDB",
+            "name": "mariadb",
+            "database": "ispyb_build",
+            "username": "root",
+            "askForPassword": true
+        },
+        {
+            "mysqlOptions": {
+                "authProtocol": "default",
+                "enableSsl": "Disabled"
+            },
+            "previewLimit": 50,
+            "server": "ispybdbproxy.diamond.ac.uk",
+            "port": 4306,
+            "driver": "MariaDB",
+            "name": "ispyb-",
+            "database": "ispyb",
+            "username": "ispyb_ro",
+            "askForPassword": true
+        }
+    ],
+    "rust-analyzer.linkedProjects": [
+        "./datasets/Cargo.toml"
+    ],
+    "rust-analyzer.showUnlinkedFileNotification": false
+}

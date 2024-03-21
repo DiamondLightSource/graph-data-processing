@@ -1,0 +1,10 @@
+[workspace]
+default-members = ["graph-data-processing"]
+members = ["models", "graph-data-processing"]
+resolver = "2"
+
+[workspace.dependencies]
+sea-orm = { version = "0.12.14", features = [
+    "runtime-tokio-rustls",
+    "sqlx-mysql",
+] }
