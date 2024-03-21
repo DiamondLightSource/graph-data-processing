@@ -16,28 +16,13 @@ struct Table<'a> {
 }
 
 const TABLES_SPECS: &[&Table] = &[&Table {
-    name: "DataCollection",
+    name: "DataCollectionFileAttachment",
     columns: &[
+        "dataCollectionFileAttachmentId",
         "dataCollectionId",
-        "SESSIONID",
-        "dataCollectionGroupId",
-        "wavelength",
-        "exposureTime",
-        "imageDirectory",
-        "imageSuffix",
-        "imagePrefix",
-        "imageContainerSubPath",
-        "numberOfImages",
-        "comments",
-        "processedDataFile",
-        "xBeam",
-        "yBeam",
-        "detectorDistance",
-        "beamSizeAtSampleX",
-        "beamSizeAtSampleY",
-        "detectorId",
-        "startTime",
-        "endTime",
+        "fileFullPath",
+        "fileType",
+        "createTime"
     ],
 }];
 

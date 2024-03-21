@@ -6,22 +6,22 @@ WORKDIR /app
 
 COPY Cargo.toml Cargo.lock .
 COPY models/Cargo.toml models/Cargo.toml
-COPY datasets/Cargo.toml datasets/Cargo.toml
+COPY graph-data-processing/Cargo.toml graph-data-processing/Cargo.toml
 
 RUN mkdir models/src \
     && touch models/src/lib.rs \
-    && mkdir datasets/src \
-    && echo "fn main() {}" > datasets/src/main.rs \
+    && mkdir graph-data-processing/src \
+    && echo "fn main() {}" > graph-data-processing/src/main.rs \
     && cargo build --release
 
 COPY . /app
 
 RUN touch models/src/lib.rs \
-    && touch datasets/src/main.rs \
+    && touch graph-data-processing/src/main.rs \
     && cargo build --release
 
 FROM gcr.io/distroless/cc AS deploy
 
-COPY --from=build /app/target/release/datasets /datasets
+COPY --from=build /app/target/release/graph-data-processing /graph-data-processing
 
-ENTRYPOINT ["/datasets"]
+ENTRYPOINT ["/graph-data-processing"]

@@ -30,7 +30,7 @@
         }
     ],
     "rust-analyzer.linkedProjects": [
-        "./datasets/Cargo.toml"
+        "./graph-data-processing/Cargo.toml"
     ],
     "rust-analyzer.showUnlinkedFileNotification": false
 }

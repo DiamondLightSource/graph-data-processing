@@ -77,7 +77,7 @@ jobs:
           run: >
             rover subgraph publish data-gateway-n63jcf@current 
             --routing-url http://graph-data-processing:80 
-            --schema sessions.graphql
-            --name sessions
+            --schema graph-data-processing.graphql
+            --name graph-data-processing
           env:
             APOLLO_KEY: ${{ secrets.APOLLO_STUDIO }} 
