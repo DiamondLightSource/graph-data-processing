@@ -33,6 +33,10 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args: 
             - serve
+            - --s3-force-path-style
+          envFrom:
+          - configMapRef:
+              name: s3-config
           env:
             - name: DATABASE_PASSWORD
               valueFrom:
@@ -45,6 +49,11 @@ spec:
               value: {{ .Values.logLevel }}
             - name: OTEL_COLLECTOR_URL
               value: {{ tpl .Values.otelCollectorUrl . }}
+            - name: S3_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: s3-secret
+                  key: access-key
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}

@@ -1,7 +1,7 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "datasets.name" -}}
+{{- define "data-processing.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
@@ -10,7 +10,7 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
 */}}
-{{- define "datasets.fullname" -}}
+{{- define "data-processing.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -26,16 +26,16 @@ If release name contains chart name it will be used as a full name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "datasets.chart" -}}
+{{- define "data-processing.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "datasets.labels" -}}
-helm.sh/chart: {{ include "datasets.chart" . }}
-{{ include "datasets.selectorLabels" . }}
+{{- define "data-processing.labels" -}}
+helm.sh/chart: {{ include "data-processing.chart" . }}
+{{ include "data-processing.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -45,17 +45,17 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "datasets.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "datasets.name" . }}
+{{- define "data-processing.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "data-processing.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 Create the name of the service account to use
 */}}
-{{- define "datasets.serviceAccountName" -}}
+{{- define "data-processing.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (include "datasets.fullname" .) .Values.serviceAccount.name }}
+{{- default (include "data-processing.fullname" .) .Values.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
@@ -64,7 +64,7 @@ Create the name of the service account to use
 {{/*
 Create the database URL string
 */}}
-{{- define "datasets.databaseURL" -}}
+{{- define "data-processing.databaseURL" -}}
 {{- $host_parts := urlParse .Values.database.host }}
 {{- $raw_user_info := printf "%s:$DATABASE_PASSWORD" .Values.database.user }}
 {{- $url_parts := set $host_parts "userinfo" $raw_user_info }}
