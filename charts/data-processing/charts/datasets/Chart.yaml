@@ -1,0 +1,8 @@
+apiVersion: v2
+name: data-processing
+description: A service providing processed data collected during beamline sessions as part of the graph federation
+type: application
+
+version: 0.1.0
+
+appVersion: 0.1.0-rc1

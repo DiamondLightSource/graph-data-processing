@@ -1,0 +1,6 @@
+dependencies:
+- name: data-processing
+  repository: ""
+  version: 0.1.0
+digest: sha256:bac0b96b8e2519051015ea74ef616cbc76de21a1803714ef9fa25ab896a10f93
+generated: "2024-03-28T11:43:46.834271769Z"

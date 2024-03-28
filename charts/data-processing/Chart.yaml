@@ -1,0 +1,11 @@
+apiVersion: v2
+name: data-processing
+description: A deployment providing processed data collected during beamline session as part of the graph federation
+type: application
+
+version: 0.1.0
+
+dependencies:
+  - name: data-processing
+    version: 0.1.0
+    condition: data-processing.enabled

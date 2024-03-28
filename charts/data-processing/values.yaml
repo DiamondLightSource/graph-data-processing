@@ -1,0 +1,10 @@
+data-processing:
+  enabled: true
+  logLevel: Debug
+  database:
+    host: mysql://ispyb-mariadb-galera-headless
+    user: ispyb_ro
+    password:
+      secretName: ispyb
+      secretKey: password
+  otelCollectorUrl: http://federation-opentelemetry-collector:4317
