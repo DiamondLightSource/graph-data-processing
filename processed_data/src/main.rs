@@ -7,12 +7,14 @@
 mod built_info;
 /// GraphQL resolvers
 mod graphql;
+/// An [`axum::handler::Handler`] for GraphQL
+mod route_handlers;
 
-use async_graphql::{extensions::Tracing, http::GraphiQLSource, SDLExportOptions};
-use async_graphql_axum::{GraphQL, GraphQLSubscription};
+use async_graphql::{http::GraphiQLSource, SDLExportOptions};
 use aws_credential_types::{provider::SharedCredentialsProvider, Credentials};
 use aws_sdk_s3::{config::Region, Client};
 use axum::{response::Html, routing::get, Router};
+use axum_tracing_opentelemetry::middleware::{OtelAxumLayer, OtelInResponseLayer};
 use clap::{ArgAction::SetTrue, Parser};
 use derive_more::{Deref, FromStr, Into};
 use graphql::{root_schema_builder, RootSchema};
@@ -26,9 +28,11 @@ use std::{
     time::Duration,
 };
 use tokio::net::TcpListener;
-use tracing::instrument;
+use tracing::{info, instrument};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use url::Url;
+
+use crate::route_handlers::GraphQLHandler;
 
 /// A service providing Beamline ISPyB data collected during sessions
 #[derive(Debug, Parser)]
@@ -127,8 +131,12 @@ struct SchemaArgs {
 /// Creates a connection pool to access the database
 #[instrument(skip(database_url))]
 async fn setup_database(database_url: Url) -> Result<DatabaseConnection, TransactionError<DbErr>> {
-    let connection_options = ConnectOptions::new(database_url.to_string());
+    info!("Connecting to database at {database_url}");
+    let connection_options = ConnectOptions::new(database_url.to_string())
+        .sqlx_logging_level(tracing::log::LevelFilter::Debug)
+        .to_owned();
     let connection = Database::connect(connection_options).await?;
+    info!("Database connection established: {connection:?}");
     Ok(connection)
 }
 
@@ -136,32 +144,27 @@ async fn setup_database(database_url: Url) -> Result<DatabaseConnection, Transac
 fn setup_router(schema: RootSchema) -> Router {
     #[allow(clippy::missing_docs_in_private_items)]
     const GRAPHQL_ENDPOINT: &str = "/";
-    #[allow(clippy::missing_docs_in_private_items)]
-    const SUBSCRIPTION_ENDPOINT: &str = "/ws";
 
     Router::new()
         .route(
             GRAPHQL_ENDPOINT,
             get(Html(
-                GraphiQLSource::build()
-                    .endpoint(GRAPHQL_ENDPOINT)
-                    .subscription_endpoint(SUBSCRIPTION_ENDPOINT)
-                    .finish(),
+                GraphiQLSource::build().endpoint(GRAPHQL_ENDPOINT).finish(),
             ))
-            .post_service(GraphQL::new(schema.clone())),
+            .post(GraphQLHandler::new(schema)),
         )
-        .route_service(SUBSCRIPTION_ENDPOINT, GraphQLSubscription::new(schema))
+        .layer(OtelInResponseLayer)
+        .layer(OtelAxumLayer::default())
 }
 
 /// Serves the endpoints on the specified port forever
 async fn serve(router: Router, port: u16) -> Result<(), std::io::Error> {
     let socket_addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, port));
     let listener = TcpListener::bind(socket_addr).await?;
-    println!("GraphiQL IDE: {}", socket_addr);
+    println!("Serving API & GraphQL UI at {}", socket_addr);
     axum::serve(listener, router.into_make_service()).await?;
     Ok(())
 }
-
 /// Sets up Logging & Tracing using opentelemetry if available
 fn setup_telemetry(
     log_level: tracing::Level,
@@ -180,6 +183,9 @@ fn setup_telemetry(
         ),
     ]);
     let (metrics_layer, tracing_layer) = if let Some(otel_collector_url) = otel_collector_url {
+        opentelemetry::global::set_text_map_propagator(
+            opentelemetry_sdk::propagation::TraceContextPropagator::default(),
+        );
         (
             Some(tracing_opentelemetry::MetricsLayer::new(
                 opentelemetry_otlp::new_pipeline()
@@ -232,13 +238,7 @@ async fn main() {
         Cli::Serve(args) => {
             setup_telemetry(args.log_level, args.otel_collector_url).unwrap();
             let database = setup_database(args.database_url).await.unwrap();
-            let s3_client = aws_sdk_s3::Client::from_s3_client_args(args.s3_client);
-            let schema = root_schema_builder()
-                .extension(Tracing)
-                .data(database)
-                .data(s3_client)
-                .data(args.s3_bucket)
-                .finish();
+            let schema = root_schema_builder().data(database).finish();
             let router = setup_router(schema);
             serve(router, args.port).await.unwrap();
         }
