@@ -39,13 +39,13 @@ jobs:
           command: run
           args: >
             schema
-            --path graph-data-processing.graphql
+            --path processed_data.graphql
 
       - name: Upload Schema Artifact
         uses: actions/upload-artifact@v4.3.1
         with:
-          name: graph-data-processing.graphql
-          path: graph-data-processing.graphql
+          name: processed_data.graphql
+          path: processed_data.graphql
 
   publish:
       # Deduplicate jobs from pull requests and branch pushes within the same repo.
@@ -62,13 +62,13 @@ jobs:
         - name: Download Schema Artifact
           uses: actions/download-artifact@v4.1.4
           with:
-            name: graph-data-processing.graphql
+            name: processed_data.graphql
 
         - name: Check Subgraph Schema
           run: >
             rover subgraph check data-gateway-n63jcf@current
-            --schema graph-data-processing.graphql
-            --name graph-data-processing
+            --schema processed_data.graphql
+            --name processed_data
           env:
             APOLLO_KEY: ${{ secrets.APOLLO_STUDIO }}
 
@@ -76,8 +76,8 @@ jobs:
           if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags') }}
           run: >
             rover subgraph publish data-gateway-n63jcf@current 
-            --routing-url http://graph-data-processing:80 
-            --schema graph-data-processing.graphql
-            --name graph-data-processing
+            --routing-url http://processed_data:80 
+            --schema processed_data.graphql
+            --name processed_data
           env:
             APOLLO_KEY: ${{ secrets.APOLLO_STUDIO }} 

@@ -1,6 +1,6 @@
 [workspace]
-default-members = ["graph-data-processing"]
-members = ["models", "graph-data-processing"]
+default-members = ["processed_data"]
+members = ["models", "processed_data"]
 resolver = "2"
 
 [workspace.dependencies]

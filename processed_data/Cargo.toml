@@ -1,5 +1,5 @@
 [package]
-name = "graph-data-processing"
+name = "processed_data"
 version = "0.1.0"
 edition = "2021"
 

@@ -1,7 +1,7 @@
 {
-    "name": "graph-data-processing",
+    "name": "processed_data",
     "dockerComposeFile": "docker-compose.yml",
-    "service": "graph-data-processing",
+    "service": "processed_data",
     "customizations": {
       "vscode": {
         "extensions": [
