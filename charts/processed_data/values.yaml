@@ -1,4 +1,4 @@
-data-processing:
+processed-data:
   enabled: true
   logLevel: Trace
   database:

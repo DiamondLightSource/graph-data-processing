@@ -165,6 +165,7 @@ async fn serve(router: Router, port: u16) -> Result<(), std::io::Error> {
     axum::serve(listener, router.into_make_service()).await?;
     Ok(())
 }
+
 /// Sets up Logging & Tracing using opentelemetry if available
 fn setup_telemetry(
     log_level: tracing::Level,

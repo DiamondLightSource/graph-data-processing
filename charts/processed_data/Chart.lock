@@ -1,5 +1,5 @@
 dependencies:
-- name: data-processing
+- name: processed-data
   repository: ""
   version: 0.1.0
 digest: sha256:dae1a4134cd27f66adb5a23045d12be96ee3a26240f2cbf024c08d9b2cd89853

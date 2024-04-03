@@ -2,7 +2,7 @@ nameOverride: ""
 fullnameOverride: ""
 
 image:
-  repository: ghcr.io/diamondlightsource/processed_data
+  repository: ghcr.io/diamondlightsource/graph-processed-data
   pullPolicy: Always
   tag: ""
 

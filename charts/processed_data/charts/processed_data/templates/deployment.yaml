@@ -1,14 +1,14 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "data-processing.fullname" . }}
+  name: {{ include "processed-data.fullname" . }}
   labels:
-    {{- include "data-processing.labels" . | nindent 4 }}
+    {{- include "processed-data.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      {{- include "data-processing.selectorLabels" . | nindent 6 }}
+      {{- include "processed-data.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       {{- with .Values.podAnnotations }}
@@ -16,13 +16,13 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "data-processing.selectorLabels" . | nindent 8 }}
+        {{- include "processed-data.selectorLabels" . | nindent 8 }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "data-processing.serviceAccountName" . }}
+      serviceAccountName: {{ include "processed-data.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
@@ -44,7 +44,7 @@ spec:
                   name: {{ .Values.database.password.secretName }}
                   key: {{ .Values.database.password.secretKey }}
             - name: DATABASE_URL
-              value: {{ include "data-processing.databaseURL" . }}
+              value: {{ include "processed-data.databaseURL" . }}
             - name: LOG_LEVEL
               value: {{ .Values.logLevel }}
             - name: OTEL_COLLECTOR_URL
