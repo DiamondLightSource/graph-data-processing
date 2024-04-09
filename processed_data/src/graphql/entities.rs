@@ -114,7 +114,7 @@ impl From<auto_proc::Model> for AutoProc {
 
 /// Represents an auto processed program
 #[derive(Clone, Debug, PartialEq, SimpleObject)]
-#[graphql(name = "AutoProcProgram", unresolvable)]
+#[graphql(name = "AutoProcProgram", unresolvable, complex)]
 pub struct AutoProcProgram {
     /// An opaque unique identifier for the auto processing program
     pub auto_proc_program_id: u32,
@@ -142,7 +142,7 @@ impl From<auto_proc_program::Model> for AutoProcProgram {
 
 /// Represents an auto processing integration
 #[derive(Clone, Debug, PartialEq, SimpleObject)]
-#[graphql(name = "AutoProcIntegration", unresolvable)]
+#[graphql(name = "AutoProcIntegration", unresolvable, complex)]
 pub struct AutoProcIntegration {
     /// An opaque unique identifier for the auto processing integration
     pub auto_proc_integration_id: u32,

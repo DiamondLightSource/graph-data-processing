@@ -5,11 +5,19 @@ use async_graphql::{
     ComplexObject, Context, EmptyMutation, EmptySubscription, Object, Schema, SchemaBuilder,
 };
 use aws_sdk_s3::presigning::PresigningConfig;
-use entities::{DataCollection, DataProcessing, ProcessingJob, ProcessingJobParameter, AutoProcIntegration};
-use models::{data_collection_file_attachment, processing_job, processing_job_parameter, auto_proc_integration};
+use entities::{
+    AutoProcIntegration, DataCollection, DataProcessing, ProcessingJob, ProcessingJobParameter,
+    AutoProc, AutoProcScaling,
+};
+use models::{
+    auto_proc_integration, auto_proc_program, data_collection_file_attachment, processing_job,
+    processing_job_parameter, auto_proc, auto_proc_scaling,
+};
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use std::time::Duration;
 use url::Url;
+
+use self::entities::AutoProcProgram;
 
 /// The GraphQL schema exposed by the service
 pub type RootSchema = Schema<Query, EmptyMutation, EmptySubscription>;
@@ -92,11 +100,56 @@ impl ProcessingJob {
     }
 }
 
+#[ComplexObject]
+impl AutoProcIntegration {
+    async fn auto_proc_program(
+        &self,
+        ctx: &Context<'_>,
+    ) -> async_graphql::Result<Vec<AutoProcProgram>> {
+        let database = ctx.data::<DatabaseConnection>()?;
+        Ok(auto_proc_program::Entity::find()
+            .filter(auto_proc_program::Column::AutoProcProgramId.eq(self.auto_proc_program_id))
+            .all(database)
+            .await?
+            .into_iter()
+            .map(AutoProcProgram::from)
+            .collect())
+    }
+}
+
+#[ComplexObject]
+impl AutoProcProgram {
+    async fn auto_proc(&self, ctx: &Context<'_>,) -> async_graphql::Result<Option<AutoProc>> {
+        let database = ctx.data::<DatabaseConnection>()?;
+        Ok(auto_proc::Entity::find()
+            .filter(auto_proc::Column::AutoProcProgramId.eq(self.auto_proc_program_id))
+            .one(database)
+            .await?
+            .map(AutoProc::from)
+            )
+    }
+}
+
 #[Object]
 impl Query {
     /// Reference datasets resolver for the router
     #[graphql(entity)]
     async fn router_data_collection(&self, id: u32) -> DataCollection {
         DataCollection { id }
+    }
+
+    async fn auto_proc_integration(
+        &self,
+        ctx: &Context<'_>,
+        data_collection_id: u32,
+    ) -> async_graphql::Result<Vec<AutoProcIntegration>, async_graphql::Error> {
+        let database = ctx.data::<DatabaseConnection>()?;
+        Ok(auto_proc_integration::Entity::find()
+            .filter(auto_proc_integration::Column::DataCollectionId.eq(data_collection_id))
+            .all(database)
+            .await?
+            .into_iter()
+            .map(AutoProcIntegration::from)
+            .collect())
     }
 }
