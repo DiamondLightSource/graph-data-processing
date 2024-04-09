@@ -74,7 +74,7 @@ impl From<processing_job_parameter::Model> for ProcessingJobParameter {
 
 /// Represents an auto processed job
 #[derive(Clone, Debug, PartialEq, SimpleObject)]
-#[graphql(name = "AutoProc", unresolvable)]
+#[graphql(name = "AutoProc", unresolvable, complex)]
 pub struct AutoProc {
     /// An opaque unique identifier for the auto processing
     pub auto_proc_id: u32,
@@ -170,7 +170,7 @@ impl From<auto_proc_integration::Model> for AutoProcIntegration {
 
 /// Represents and auto processing scaling
 #[derive(Clone, Debug, PartialEq, SimpleObject)]
-#[graphql(name = "AutoProcScaling", unresolvable)]
+#[graphql(name = "AutoProcScaling", unresolvable, complex)]
 pub struct AutoProcScaling {
     /// An opaque unique identifier for the auto processing scaling
     pub auto_proc_scaling_id: u32,

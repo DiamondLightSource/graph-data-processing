@@ -6,12 +6,13 @@ use async_graphql::{
 };
 use aws_sdk_s3::presigning::PresigningConfig;
 use entities::{
-    AutoProcIntegration, DataCollection, DataProcessing, ProcessingJob, ProcessingJobParameter,
-    AutoProc, AutoProcScaling,
+    AutoProc, AutoProcIntegration, AutoProcScaling, AutoProcScalingStatics, DataCollection,
+    DataProcessing, ProcessingJob, ProcessingJobParameter,
 };
 use models::{
-    auto_proc_integration, auto_proc_program, data_collection_file_attachment, processing_job,
-    processing_job_parameter, auto_proc, auto_proc_scaling,
+    auto_proc, auto_proc_integration, auto_proc_program, auto_proc_scaling,
+    auto_proc_scaling_statistics, data_collection_file_attachment, processing_job,
+    processing_job_parameter,
 };
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use std::time::Duration;
@@ -62,6 +63,21 @@ impl DataCollection {
             .map(ProcessingJob::from)
             .collect())
     }
+
+    /// Fetches all the automatic process
+    async fn auto_proc_integration(
+        &self,
+        ctx: &Context<'_>,
+    ) -> async_graphql::Result<Vec<AutoProcIntegration>, async_graphql::Error> {
+        let database = ctx.data::<DatabaseConnection>()?;
+        Ok(auto_proc_integration::Entity::find()
+            .filter(auto_proc_integration::Column::DataCollectionId.eq(self.id))
+            .all(database)
+            .await?
+            .into_iter()
+            .map(AutoProcIntegration::from)
+            .collect())
+    }
 }
 
 #[ComplexObject]
@@ -85,6 +101,7 @@ impl DataProcessing {
 
 #[ComplexObject]
 impl ProcessingJob {
+    /// Fetches the processing job parameters
     async fn parameters(
         &self,
         ctx: &Context<'_>,
@@ -102,6 +119,7 @@ impl ProcessingJob {
 
 #[ComplexObject]
 impl AutoProcIntegration {
+    /// Fetches the automatically processed programs
     async fn auto_proc_program(
         &self,
         ctx: &Context<'_>,
@@ -119,14 +137,46 @@ impl AutoProcIntegration {
 
 #[ComplexObject]
 impl AutoProcProgram {
-    async fn auto_proc(&self, ctx: &Context<'_>,) -> async_graphql::Result<Option<AutoProc>> {
+    /// Fetched the automatic process
+    async fn auto_proc(&self, ctx: &Context<'_>) -> async_graphql::Result<Option<AutoProc>> {
         let database = ctx.data::<DatabaseConnection>()?;
         Ok(auto_proc::Entity::find()
             .filter(auto_proc::Column::AutoProcProgramId.eq(self.auto_proc_program_id))
             .one(database)
             .await?
-            .map(AutoProc::from)
+            .map(AutoProc::from))
+    }
+}
+
+#[ComplexObject]
+impl AutoProc {
+    /// Fetches the scaling for automatic process
+    async fn scaling(&self, ctx: &Context<'_>) -> async_graphql::Result<Option<AutoProcScaling>> {
+        let database = ctx.data::<DatabaseConnection>()?;
+        Ok(auto_proc_scaling::Entity::find()
+            .filter(auto_proc_scaling::Column::AutoProcId.eq(self.auto_proc_id))
+            .one(database)
+            .await?
+            .map(AutoProcScaling::from))
+    }
+}
+
+#[ComplexObject]
+impl AutoProcScaling {
+    /// Fetches the scaling statistics
+    async fn statistics(
+        &self,
+        ctx: &Context<'_>,
+    ) -> async_graphql::Result<Option<AutoProcScalingStatics>> {
+        let database = ctx.data::<DatabaseConnection>()?;
+        Ok(auto_proc_scaling_statistics::Entity::find()
+            .filter(
+                auto_proc_scaling_statistics::Column::AutoProcScalingId
+                    .eq(self.auto_proc_scaling_id),
             )
+            .one(database)
+            .await?
+            .map(AutoProcScalingStatics::from))
     }
 }
 
@@ -136,20 +186,5 @@ impl Query {
     #[graphql(entity)]
     async fn router_data_collection(&self, id: u32) -> DataCollection {
         DataCollection { id }
-    }
-
-    async fn auto_proc_integration(
-        &self,
-        ctx: &Context<'_>,
-        data_collection_id: u32,
-    ) -> async_graphql::Result<Vec<AutoProcIntegration>, async_graphql::Error> {
-        let database = ctx.data::<DatabaseConnection>()?;
-        Ok(auto_proc_integration::Entity::find()
-            .filter(auto_proc_integration::Column::DataCollectionId.eq(data_collection_id))
-            .all(database)
-            .await?
-            .into_iter()
-            .map(AutoProcIntegration::from)
-            .collect())
     }
 }
