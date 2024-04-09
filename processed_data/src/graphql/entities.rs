@@ -2,7 +2,7 @@ use async_graphql::{Enum, SimpleObject};
 use models::{
     auto_proc, auto_proc_integration, auto_proc_program, auto_proc_scaling,
     auto_proc_scaling_statistics, data_collection_file_attachment, processing_job,
-    sea_orm_active_enums::ScalingStatisticsType,
+    processing_job_parameter, sea_orm_active_enums::ScalingStatisticsType,
 };
 
 /// Represents processed image file stored in s3 bucket
@@ -27,7 +27,7 @@ impl From<data_collection_file_attachment::Model> for DataProcessing {
 
 /// Represents a processing job
 #[derive(Clone, Debug, PartialEq, SimpleObject)]
-#[graphql(name = "ProcessingJob", unresolvable)]
+#[graphql(name = "ProcessingJob", unresolvable, complex)]
 pub struct ProcessingJob {
     /// An opaque unique identifier for the processing job
     pub processing_job_id: u32,
@@ -46,6 +46,28 @@ impl From<processing_job::Model> for ProcessingJob {
             data_collection_id: value.data_collection_id,
             display_name: value.display_name,
             automatic: value.automatic,
+        }
+    }
+}
+
+/// Represents a processing job parameters
+#[derive(Clone, Debug, PartialEq, SimpleObject)]
+#[graphql(name = "ProcessingJobParameter", unresolvable)]
+#[allow(clippy::missing_docs_in_private_items)]
+pub struct ProcessingJobParameter {
+    pub processing_job_parameter_id: u32,
+    pub processing_job_id: Option<u32>,
+    pub parameter_key: Option<String>,
+    pub parameter_value: Option<String>,
+}
+
+impl From<processing_job_parameter::Model> for ProcessingJobParameter {
+    fn from(value: processing_job_parameter::Model) -> Self {
+        Self {
+            processing_job_id: value.processing_job_id,
+            processing_job_parameter_id: value.processing_job_parameter_id,
+            parameter_key: value.parameter_key,
+            parameter_value: value.parameter_value,
         }
     }
 }

@@ -68,7 +68,7 @@ jobs:
           run: >
             rover subgraph check data-gateway-n63jcf@current
             --schema processed_data.graphql
-            --name processed_data
+            --name processed-data
           env:
             APOLLO_KEY: ${{ secrets.APOLLO_STUDIO }}
 

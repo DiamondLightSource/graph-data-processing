@@ -34,6 +34,15 @@ const TABLES_SPECS: &[&Table] = &[
         ],
     },
     &Table {
+        name: "ProcessingJobParameter",
+        columns: &[
+            "processingJobParameterId",
+            "processingJobId",
+            "parameterKey",
+            "parameterValue",
+        ],
+    },
+    &Table {
         name: "AutoProc",
         columns: &[
             "autoProcId",

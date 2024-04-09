@@ -5,8 +5,8 @@ use async_graphql::{
     ComplexObject, Context, EmptyMutation, EmptySubscription, Object, Schema, SchemaBuilder,
 };
 use aws_sdk_s3::presigning::PresigningConfig;
-use entities::{DataCollection, DataProcessing};
-use models::data_collection_file_attachment;
+use entities::{DataCollection, DataProcessing, ProcessingJob, ProcessingJobParameter, AutoProcIntegration};
+use models::{data_collection_file_attachment, processing_job, processing_job_parameter, auto_proc_integration};
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use std::time::Duration;
 use url::Url;
@@ -39,6 +39,21 @@ impl DataCollection {
             .map(DataProcessing::from)
             .collect())
     }
+
+    /// Fetched all the processing jobs
+    async fn processing_jobs(
+        &self,
+        ctx: &Context<'_>,
+    ) -> async_graphql::Result<Vec<ProcessingJob>, async_graphql::Error> {
+        let database = ctx.data::<DatabaseConnection>()?;
+        Ok(processing_job::Entity::find()
+            .filter(processing_job::Column::DataCollectionId.eq(self.id))
+            .all(database)
+            .await?
+            .into_iter()
+            .map(ProcessingJob::from)
+            .collect())
+    }
 }
 
 #[ComplexObject]
@@ -57,6 +72,23 @@ impl DataProcessing {
             .clone();
         let object_url = Url::parse(&object_uri.to_string())?;
         Ok(object_url.to_string())
+    }
+}
+
+#[ComplexObject]
+impl ProcessingJob {
+    async fn parameters(
+        &self,
+        ctx: &Context<'_>,
+    ) -> async_graphql::Result<Vec<ProcessingJobParameter>> {
+        let database = ctx.data::<DatabaseConnection>()?;
+        Ok(processing_job_parameter::Entity::find()
+            .filter(processing_job_parameter::Column::ProcessingJobId.eq(self.processing_job_id))
+            .all(database)
+            .await?
+            .into_iter()
+            .map(ProcessingJobParameter::from)
+            .collect())
     }
 }
 
