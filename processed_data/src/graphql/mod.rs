@@ -123,15 +123,14 @@ impl AutoProcIntegration {
     async fn auto_proc_program(
         &self,
         ctx: &Context<'_>,
-    ) -> async_graphql::Result<Vec<AutoProcProgram>> {
+    ) -> async_graphql::Result<Option<AutoProcProgram>> {
         let database = ctx.data::<DatabaseConnection>()?;
         Ok(auto_proc_program::Entity::find()
             .filter(auto_proc_program::Column::AutoProcProgramId.eq(self.auto_proc_program_id))
-            .all(database)
+            .one(database)
             .await?
-            .into_iter()
             .map(AutoProcProgram::from)
-            .collect())
+            )
     }
 }
 
