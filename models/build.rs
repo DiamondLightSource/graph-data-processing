@@ -15,14 +15,85 @@ struct Table<'a> {
     columns: &'a [&'a str],
 }
 
-const TABLES_SPECS: &[&Table] = &[&Table {
-    name: "DataCollectionFileAttachment",
-    columns: &[
-        "dataCollectionFileAttachmentId",
-        "dataCollectionId",
-        "fileFullPath",
-    ],
-}];
+const TABLES_SPECS: &[&Table] = &[
+    &Table {
+        name: "DataCollectionFileAttachment",
+        columns: &[
+            "dataCollectionFileAttachmentId",
+            "dataCollectionId",
+            "fileFullPath",
+        ],
+    },
+    &Table {
+        name: "ProcessingJob",
+        columns: &[
+            "processingJobId",
+            "dataCollectionId",
+            "displayName",
+            "automatic",
+        ],
+    },
+    &Table {
+        name: "AutoProc",
+        columns: &[
+            "autoProcId",
+            "autoProcProgramId",
+            "spaceGroup",
+            "refinedCell_a",
+            "refinedCell_b",
+            "refinedCell_c",
+            "refinedCell_alpha",
+            "refinedCell_beta",
+            "refinedCell_gamma",
+        ],
+    },
+    &Table {
+        name: "AutoProcProgram",
+        columns: &[
+            "autoProcProgramId",
+            "processingPrograms",
+            "processingStatus",
+            "processingMessage",
+            "processingJobId",
+        ],
+    },
+    &Table {
+        name: "AutoProcIntegration",
+        columns: &[
+            "autoProcIntegrationId",
+            "dataCollectionId",
+            "autoProcProgramId",
+            "refinedXBeam",
+            "refinedYBeam",
+        ],
+    },
+    &Table {
+        name: "AutoProcScaling",
+        columns: &["autoProcScalingId", "autoProcId"],
+    },
+    &Table {
+        name: "AutoProcScalingStatistics",
+        columns: &[
+            "autoProcScalingStatisticsId",
+            "autoProcScalingId",
+            "ccHalf",
+            "ccAnomalous",
+            "nTotalObservations",
+            "nTotalUniqueObservations",
+            "resolutionLimitLow",
+            "resolutionLimitHigh",
+            "scalingStatisticsType",
+            "rMeasAllIPlusIMinus",
+            "anomalousCompleteness",
+            "anomalousMultiplicity",
+            "rMerge",
+            "completeness",
+            "multiplicity",
+            "meanIOverSigI",
+            "resioversigi2",
+        ],
+    },
+];
 
 fn main() {
     tokio::runtime::Builder::new_current_thread()
