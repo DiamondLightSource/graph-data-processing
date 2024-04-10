@@ -51,6 +51,10 @@ pub fn root_schema_builder(
             AutoProcProgramDataLoader::new(database.clone()),
             tokio::spawn,
         ))
+        .data(DataLoader::new(
+            AutoProcDataLoader::new(database.clone()),
+            tokio::spawn,
+        ))
         .data(database)
         .enable_federation()
 }
@@ -64,6 +68,7 @@ pub struct ProcessingJobDataLoader(DatabaseConnection);
 pub struct ProcessingJobParameterDataLoader(DatabaseConnection);
 pub struct AutoProcIntegrationDataLoader(DatabaseConnection);
 pub struct AutoProcProgramDataLoader(DatabaseConnection);
+pub struct AutoProcDataLoader(DatabaseConnection);
 
 impl ProcessingJobDataLoader {
     fn new(database: DatabaseConnection) -> Self {
@@ -90,6 +95,12 @@ impl AutoProcIntegrationDataLoader {
 }
 
 impl AutoProcProgramDataLoader {
+    fn new(database: DatabaseConnection) -> Self {
+        Self(database)
+    }
+}
+
+impl AutoProcDataLoader {
     fn new(database: DatabaseConnection) -> Self {
         Self(database)
     }
@@ -220,6 +231,29 @@ impl Loader<u32> for AutoProcProgramDataLoader {
     }
 }
 
+impl Loader<u32> for AutoProcDataLoader {
+    type Value = AutoProc;
+    type Error = async_graphql::Error;
+
+    #[instrument(name = "load_auto_proc", skip(self))]
+    async fn load(&self, keys: &[u32]) -> Result<HashMap<u32, Self::Value>, Self::Error> {
+        let mut results = HashMap::new();
+        let keys_vec: Vec<u32> = keys.iter().cloned().collect();
+        let records = auto_proc::Entity::find()
+            .filter(auto_proc::Column::AutoProcProgramId.is_in(keys_vec))
+            .all(&self.0)
+            .await?;
+
+        for record in records {
+            let program_id = record.auto_proc_program_id.unwrap();
+            let data = AutoProc::from(record);
+            results.insert(program_id, data);
+        }
+
+        Ok(results)
+    }
+}
+
 #[ComplexObject]
 impl DataCollection {
     /// Fetched all the processed data from data collection during a session
@@ -297,12 +331,8 @@ impl AutoProcIntegration {
 impl AutoProcProgram {
     /// Fetched the automatic process
     async fn auto_proc(&self, ctx: &Context<'_>) -> async_graphql::Result<Option<AutoProc>> {
-        let database = ctx.data::<DatabaseConnection>()?;
-        Ok(auto_proc::Entity::find()
-            .filter(auto_proc::Column::AutoProcProgramId.eq(self.auto_proc_program_id))
-            .one(database)
-            .await?
-            .map(AutoProc::from))
+        let loader = ctx.data_unchecked::<DataLoader<AutoProcDataLoader>>();
+        Ok(loader.load_one(self.auto_proc_program_id).await?)
     }
 }
 
