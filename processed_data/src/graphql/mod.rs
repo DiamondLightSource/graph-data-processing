@@ -2,9 +2,11 @@
 mod entities;
 use crate::S3Bucket;
 use async_graphql::{
-    ComplexObject, Context, EmptyMutation, EmptySubscription, Object, Schema, SchemaBuilder,
+    dataloader::{DataLoader, Loader}, ComplexObject, Context, EmptyMutation, EmptySubscription, Object, Schema, SchemaBuilder
 };
 use aws_sdk_s3::presigning::PresigningConfig;
+use tracing::instrument;
+use std::collections::HashMap;
 use entities::{
     AutoProc, AutoProcIntegration, AutoProcScaling, AutoProcScalingStatics, DataCollection,
     DataProcessing, ProcessingJob, ProcessingJobParameter,
@@ -24,13 +26,52 @@ use self::entities::AutoProcProgram;
 pub type RootSchema = Schema<Query, EmptyMutation, EmptySubscription>;
 
 /// A schema builder for the service
-pub fn root_schema_builder() -> SchemaBuilder<Query, EmptyMutation, EmptySubscription> {
-    Schema::build(Query, EmptyMutation, EmptySubscription).enable_federation()
+pub fn root_schema_builder(database: DatabaseConnection) -> SchemaBuilder<Query, EmptyMutation, EmptySubscription> {
+    Schema::build(Query, EmptyMutation, EmptySubscription)
+        .data(DataLoader::new(
+            DataCollectionLoader::new(database.clone()),
+            tokio::spawn,
+        ))
+        .data(database)
+        .enable_federation()
 }
 
 /// The root query of the service
 #[derive(Debug, Clone, Default)]
 pub struct Query;
+
+pub struct DataCollectionLoader(DatabaseConnection);
+
+impl DataCollectionLoader {
+    fn new(database: DatabaseConnection) -> Self {
+        Self ( database )
+    }
+}
+
+impl Loader<u32> for DataCollectionLoader {
+    type Value = Vec<DataProcessing>;
+    type Error = async_graphql::Error;
+
+    #[instrument(skip(self))]
+    async fn load(&self, keys: &[u32]) -> Result<HashMap<u32, Self::Value>, Self::Error> {
+
+        let mut results = HashMap::new();
+        let keys_vec: Vec<u32> = keys.iter().cloned().collect();
+        let records = data_collection_file_attachment::Entity::find()
+            .filter(data_collection_file_attachment::Column::DataCollectionId.is_in(keys_vec))
+            .all(&self.0)
+            .await?;
+
+        for record in records {
+            let data_collection_id = record.data_collection_id;
+            let data = DataProcessing::from(record);
+
+            results.entry(data_collection_id).or_insert_with(Vec::new).push(data);
+        }
+
+        Ok(results)
+    }
+}
 
 #[ComplexObject]
 impl DataCollection {
@@ -38,15 +79,9 @@ impl DataCollection {
     async fn processed_data(
         &self,
         ctx: &Context<'_>,
-    ) -> Result<Vec<DataProcessing>, async_graphql::Error> {
-        let database = ctx.data::<DatabaseConnection>()?;
-        Ok(data_collection_file_attachment::Entity::find()
-            .filter(data_collection_file_attachment::Column::DataCollectionId.eq(self.id))
-            .all(database)
-            .await?
-            .into_iter()
-            .map(DataProcessing::from)
-            .collect())
+    ) -> Result<Option<Vec<DataProcessing>>, async_graphql::Error> {
+        let loader = ctx.data_unchecked::<DataLoader<DataCollectionLoader>>();
+        Ok(loader.load_one(self.id).await?)
     }
 
     /// Fetched all the processing jobs
@@ -184,5 +219,14 @@ impl Query {
     #[graphql(entity)]
     async fn router_data_collection(&self, id: u32) -> DataCollection {
         DataCollection { id }
+    }
+
+    async fn processed_data(
+        &self,
+        ctx: &Context<'_>,
+        id: u32,
+    ) -> Result<Option<Vec<DataProcessing>>, async_graphql::Error> {
+        let loader = ctx.data_unchecked::<DataLoader<DataCollectionLoader>>();
+        Ok(loader.load_one(id).await?)
     }
 }

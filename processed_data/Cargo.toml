@@ -11,6 +11,7 @@ async-graphql = { version = "7.0.2", default-features = false, features = [
     "chrono",
     "graphiql",
     "tracing",
+    "dataloader",
 ] }
 async-graphql-axum = { version = "7.0.2" }
 aws-credential-types = { version = "0.56.0" }

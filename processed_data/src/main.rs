@@ -239,19 +239,20 @@ async fn main() {
         Cli::Serve(args) => {
             setup_telemetry(args.log_level, args.otel_collector_url).unwrap();
             let database = setup_database(args.database_url).await.unwrap();
-            let schema = root_schema_builder().data(database).finish();
+            let schema = root_schema_builder(database).finish();
             let router = setup_router(schema);
             serve(router, args.port).await.unwrap();
         }
         Cli::Schema(args) => {
-            let schema = root_schema_builder().finish();
-            let schema_string = schema.sdl_with_options(SDLExportOptions::new().federation());
-            if let Some(path) = args.path {
-                let mut file = File::create(path).unwrap();
-                file.write_all(schema_string.as_bytes()).unwrap();
-            } else {
-                println!("{}", schema_string)
-            }
+            // let database = setup_database(args.database_url).await.unwrap();
+            // let schema = root_schema_builder(database).finish();
+            // let schema_string = schema.sdl_with_options(SDLExportOptions::new().federation());
+            // if let Some(path) = args.path {
+            //     let mut file = File::create(path).unwrap();
+            //     file.write_all(schema_string.as_bytes()).unwrap();
+            // } else {
+            //     println!("{}", schema_string)
+            // }
         }
     }
 }
