@@ -55,6 +55,14 @@ pub fn root_schema_builder(
             AutoProcDataLoader::new(database.clone()),
             tokio::spawn,
         ))
+        .data(DataLoader::new(
+            AutoProcScalingDataLoader::new(database.clone()),
+            tokio::spawn,
+        ))
+        .data(DataLoader::new(
+            AutoProcScalingStaticsDL::new(database.clone()),
+            tokio::spawn,
+        ))
         .data(database)
         .enable_federation()
 }
@@ -69,6 +77,8 @@ pub struct ProcessingJobParameterDataLoader(DatabaseConnection);
 pub struct AutoProcIntegrationDataLoader(DatabaseConnection);
 pub struct AutoProcProgramDataLoader(DatabaseConnection);
 pub struct AutoProcDataLoader(DatabaseConnection);
+pub struct AutoProcScalingDataLoader(DatabaseConnection);
+pub struct AutoProcScalingStaticsDL(DatabaseConnection);
 
 impl ProcessingJobDataLoader {
     fn new(database: DatabaseConnection) -> Self {
@@ -101,6 +111,18 @@ impl AutoProcProgramDataLoader {
 }
 
 impl AutoProcDataLoader {
+    fn new(database: DatabaseConnection) -> Self {
+        Self(database)
+    }
+}
+
+impl AutoProcScalingDataLoader {
+    fn new(database: DatabaseConnection) -> Self {
+        Self(database)
+    }
+}
+
+impl AutoProcScalingStaticsDL {
     fn new(database: DatabaseConnection) -> Self {
         Self(database)
     }
@@ -254,6 +276,60 @@ impl Loader<u32> for AutoProcDataLoader {
     }
 }
 
+impl Loader<u32> for AutoProcScalingDataLoader {
+    type Value = AutoProcScaling;
+    type Error = async_graphql::Error;
+
+    #[instrument(name = "load_auto_proc_scaling", skip(self))]
+    async fn load(&self, keys: &[u32]) -> Result<HashMap<u32, Self::Value>, Self::Error> {
+        let mut results = HashMap::new();
+        let keys_vec: Vec<u32> = keys.iter().cloned().collect();
+        let records = auto_proc_scaling::Entity::find()
+            .filter(auto_proc_scaling::Column::AutoProcId.is_in(keys_vec))
+            .all(&self.0)
+            .await?;
+
+        for record in records {
+            let auto_proc_id = record.auto_proc_id.unwrap();
+            let data = AutoProcScaling::from(record);
+            results.insert(auto_proc_id, data);
+        }
+
+        Ok(results)
+    }
+}
+
+// .filter(
+//     auto_proc_scaling_statistics::Column::AutoProcScalingId
+//         .eq(self.auto_proc_scaling_id),
+// )
+// .one(database)
+// .await?
+// .map(AutoProcScalingStatics::from))
+
+impl Loader<u32> for AutoProcScalingStaticsDL {
+    type Value = AutoProcScalingStatics;
+    type Error = async_graphql::Error;
+
+    #[instrument(name = "load_auto_proc_scaling_statics", skip(self))]
+    async fn load(&self, keys: &[u32]) -> Result<HashMap<u32, Self::Value>, Self::Error> {
+        let mut results = HashMap::new();
+        let keys_vec: Vec<u32> = keys.iter().cloned().collect();
+        let records = auto_proc_scaling_statistics::Entity::find()
+            .filter(auto_proc_scaling_statistics::Column::AutoProcScalingId.is_in(keys_vec))
+            .all(&self.0)
+            .await?;
+
+        for record in records {
+            let auto_proc_scaling_id = record.auto_proc_scaling_id.unwrap();
+            let data = AutoProcScalingStatics::from(record);
+            results.insert(auto_proc_scaling_id, data);
+        }
+
+        Ok(results)
+    }
+}
+
 #[ComplexObject]
 impl DataCollection {
     /// Fetched all the processed data from data collection during a session
@@ -340,12 +416,8 @@ impl AutoProcProgram {
 impl AutoProc {
     /// Fetches the scaling for automatic process
     async fn scaling(&self, ctx: &Context<'_>) -> async_graphql::Result<Option<AutoProcScaling>> {
-        let database = ctx.data::<DatabaseConnection>()?;
-        Ok(auto_proc_scaling::Entity::find()
-            .filter(auto_proc_scaling::Column::AutoProcId.eq(self.auto_proc_id))
-            .one(database)
-            .await?
-            .map(AutoProcScaling::from))
+        let loader = ctx.data_unchecked::<DataLoader<AutoProcScalingDataLoader>>();
+        Ok(loader.load_one(self.auto_proc_id).await?)
     }
 }
 
@@ -356,15 +428,8 @@ impl AutoProcScaling {
         &self,
         ctx: &Context<'_>,
     ) -> async_graphql::Result<Option<AutoProcScalingStatics>> {
-        let database = ctx.data::<DatabaseConnection>()?;
-        Ok(auto_proc_scaling_statistics::Entity::find()
-            .filter(
-                auto_proc_scaling_statistics::Column::AutoProcScalingId
-                    .eq(self.auto_proc_scaling_id),
-            )
-            .one(database)
-            .await?
-            .map(AutoProcScalingStatics::from))
+        let loader = ctx.data_unchecked::<DataLoader<AutoProcScalingStaticsDL>>();
+        Ok(loader.load_one(self.auto_proc_scaling_id).await?)
     }
 }
 
