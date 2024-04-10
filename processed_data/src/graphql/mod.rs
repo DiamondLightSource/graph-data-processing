@@ -32,7 +32,15 @@ pub fn root_schema_builder(
 ) -> SchemaBuilder<Query, EmptyMutation, EmptySubscription> {
     Schema::build(Query, EmptyMutation, EmptySubscription)
         .data(DataLoader::new(
-            DataCollectionLoader::new(database.clone()),
+            ProcessedDataLoader::new(database.clone()),
+            tokio::spawn,
+        ))
+        .data(DataLoader::new(
+            ProcessingJobDataLoader::new(database.clone()),
+            tokio::spawn,
+        ))
+        .data(DataLoader::new(
+            ProcessingJobParameterDataLoader::new(database.clone()),
             tokio::spawn,
         ))
         .data(database)
@@ -43,18 +51,33 @@ pub fn root_schema_builder(
 #[derive(Debug, Clone, Default)]
 pub struct Query;
 
-pub struct DataCollectionLoader(DatabaseConnection);
+pub struct ProcessedDataLoader(DatabaseConnection);
+pub struct ProcessingJobDataLoader(DatabaseConnection);
+pub struct ProcessingJobParameterDataLoader(DatabaseConnection);
 
-impl DataCollectionLoader {
+impl ProcessingJobDataLoader {
     fn new(database: DatabaseConnection) -> Self {
         Self(database)
     }
 }
 
-impl Loader<u32> for DataCollectionLoader {
+impl ProcessedDataLoader {
+    fn new(database: DatabaseConnection) -> Self {
+        Self(database)
+    }
+}
+
+impl ProcessingJobParameterDataLoader {
+    fn new(database: DatabaseConnection) -> Self {
+        Self(database)
+    }
+}
+
+impl Loader<u32> for ProcessedDataLoader {
     type Value = DataProcessing;
     type Error = async_graphql::Error;
 
+    #[instrument(name = "load_processed_data", skip(self))]
     async fn load(&self, keys: &[u32]) -> Result<HashMap<u32, Self::Value>, Self::Error> {
         let mut results = HashMap::new();
         let keys_vec: Vec<u32> = keys.iter().cloned().collect();
@@ -74,6 +97,58 @@ impl Loader<u32> for DataCollectionLoader {
     }
 }
 
+impl Loader<u32> for ProcessingJobDataLoader {
+    type Value = Vec<ProcessingJob>;
+    type Error = async_graphql::Error;
+
+    #[instrument(name = "load_processing_job", skip(self))]
+    async fn load(&self, keys: &[u32]) -> Result<HashMap<u32, Self::Value>, Self::Error> {
+        let mut results = HashMap::new();
+        let keys_vec: Vec<u32> = keys.iter().cloned().collect();
+        let records = processing_job::Entity::find()
+            .filter(processing_job::Column::DataCollectionId.is_in(keys_vec))
+            .all(&self.0)
+            .await?;
+
+        for record in records {
+            let data_collection_id = record.data_collection_id.unwrap();
+            let data = ProcessingJob::from(record);
+
+            results
+                .entry(data_collection_id)
+                .or_insert_with(Vec::new)
+                .push(data)
+        }
+        Ok(results)
+    }
+}
+
+impl Loader<u32> for ProcessingJobParameterDataLoader {
+    type Value = Vec<ProcessingJobParameter>;
+    type Error = async_graphql::Error;
+
+    #[instrument(name = "load_processing_job_parameter", skip(self))]
+    async fn load(&self, keys: &[u32]) -> Result<HashMap<u32, Self::Value>, Self::Error> {
+        let mut results = HashMap::new();
+        let keys_vec: Vec<u32> = keys.iter().cloned().collect();
+        let records = processing_job_parameter::Entity::find()
+            .filter(processing_job_parameter::Column::ProcessingJobId.is_in(keys_vec))
+            .all(&self.0)
+            .await?;
+
+        for record in records {
+            let processing_job_id = record.processing_job_id.unwrap();
+            let data = ProcessingJobParameter::from(record);
+            results
+                .entry(processing_job_id)
+                .or_insert_with(Vec::new)
+                .push(data)
+        }
+
+        Ok(results)
+    }
+}
+
 #[ComplexObject]
 impl DataCollection {
     /// Fetched all the processed data from data collection during a session
@@ -81,7 +156,7 @@ impl DataCollection {
         &self,
         ctx: &Context<'_>,
     ) -> Result<Option<DataProcessing>, async_graphql::Error> {
-        let loader = ctx.data_unchecked::<DataLoader<DataCollectionLoader>>();
+        let loader = ctx.data_unchecked::<DataLoader<ProcessedDataLoader>>();
         Ok(loader.load_one(self.id).await?)
     }
 
@@ -89,15 +164,9 @@ impl DataCollection {
     async fn processing_jobs(
         &self,
         ctx: &Context<'_>,
-    ) -> async_graphql::Result<Vec<ProcessingJob>, async_graphql::Error> {
-        let database = ctx.data::<DatabaseConnection>()?;
-        Ok(processing_job::Entity::find()
-            .filter(processing_job::Column::DataCollectionId.eq(self.id))
-            .all(database)
-            .await?
-            .into_iter()
-            .map(ProcessingJob::from)
-            .collect())
+    ) -> async_graphql::Result<Option<Vec<ProcessingJob>>, async_graphql::Error> {
+        let loader = ctx.data_unchecked::<DataLoader<ProcessingJobDataLoader>>();
+        Ok(loader.load_one(self.id).await?)
     }
 
     /// Fetches all the automatic process
@@ -141,15 +210,9 @@ impl ProcessingJob {
     async fn parameters(
         &self,
         ctx: &Context<'_>,
-    ) -> async_graphql::Result<Vec<ProcessingJobParameter>> {
-        let database = ctx.data::<DatabaseConnection>()?;
-        Ok(processing_job_parameter::Entity::find()
-            .filter(processing_job_parameter::Column::ProcessingJobId.eq(self.processing_job_id))
-            .all(database)
-            .await?
-            .into_iter()
-            .map(ProcessingJobParameter::from)
-            .collect())
+    ) -> async_graphql::Result<Option<Vec<ProcessingJobParameter>>> {
+        let loader = ctx.data_unchecked::<DataLoader<ProcessingJobParameterDataLoader>>();
+        Ok(loader.load_one(self.processing_job_id).await?)
     }
 }
 

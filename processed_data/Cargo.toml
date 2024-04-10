@@ -10,7 +10,6 @@ anyhow = "1.0.81"
 async-graphql = { version = "7.0.2", default-features = false, features = [
     "chrono",
     "graphiql",
-    "tracing",
     "dataloader",
 ] }
 async-graphql-axum = { version = "7.0.2" }
