@@ -5,12 +5,13 @@
     "customizations": {
       "vscode": {
         "extensions": [
-            "ms-kubernetes-tools.vscode-kubernetes-tools",
-            "rust-lang.rust-analyzer",
-            "tamasfe.even-better-toml",
-            "tsandall.opa",
-            "mtxr.sqltools-driver-mysql"
-        ]
+			"ms-kubernetes-tools.vscode-kubernetes-tools",
+			"rust-lang.rust-analyzer",
+			"tamasfe.even-better-toml",
+			"tsandall.opa",
+			"mtxr.sqltools-driver-mysql",
+			"cweijan.vscode-database-client2"
+		]
       }
     },
     "features": {

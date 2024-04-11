@@ -60,7 +60,15 @@ pub fn root_schema_builder(
             tokio::spawn,
         ))
         .data(DataLoader::new(
-            AutoProcScalingStaticsDL::new(database.clone()),
+            AutoProcScalingOverall::new(database.clone()),
+            tokio::spawn,
+        ))
+        .data(DataLoader::new(
+            AutoProcScalingInnerShell::new(database.clone()),
+            tokio::spawn,
+        ))
+        .data(DataLoader::new(
+            AutoProcScalingOuterShell::new(database.clone()),
             tokio::spawn,
         ))
         .data(database)
@@ -78,7 +86,9 @@ pub struct AutoProcIntegrationDataLoader(DatabaseConnection);
 pub struct AutoProcProgramDataLoader(DatabaseConnection);
 pub struct AutoProcDataLoader(DatabaseConnection);
 pub struct AutoProcScalingDataLoader(DatabaseConnection);
-pub struct AutoProcScalingStaticsDL(DatabaseConnection);
+pub struct AutoProcScalingOverall(DatabaseConnection);
+pub struct AutoProcScalingInnerShell(DatabaseConnection);
+pub struct AutoProcScalingOuterShell(DatabaseConnection);
 
 impl ProcessingJobDataLoader {
     fn new(database: DatabaseConnection) -> Self {
@@ -122,7 +132,19 @@ impl AutoProcScalingDataLoader {
     }
 }
 
-impl AutoProcScalingStaticsDL {
+impl AutoProcScalingOverall {
+    fn new(database: DatabaseConnection) -> Self {
+        Self(database)
+    }
+}
+
+impl AutoProcScalingInnerShell {
+    fn new(database: DatabaseConnection) -> Self {
+        Self(database)
+    }
+}
+
+impl AutoProcScalingOuterShell {
     fn new(database: DatabaseConnection) -> Self {
         Self(database)
     }
@@ -135,7 +157,7 @@ impl Loader<u32> for ProcessedDataLoader {
     #[instrument(name = "load_processed_data", skip(self))]
     async fn load(&self, keys: &[u32]) -> Result<HashMap<u32, Self::Value>, Self::Error> {
         let mut results = HashMap::new();
-        let keys_vec: Vec<u32> = keys.iter().cloned().collect();
+        let keys_vec: Vec<u32> = keys.to_vec();
         let records = data_collection_file_attachment::Entity::find()
             .filter(data_collection_file_attachment::Column::DataCollectionId.is_in(keys_vec))
             .all(&self.0)
@@ -159,7 +181,7 @@ impl Loader<u32> for ProcessingJobDataLoader {
     #[instrument(name = "load_processing_job", skip(self))]
     async fn load(&self, keys: &[u32]) -> Result<HashMap<u32, Self::Value>, Self::Error> {
         let mut results = HashMap::new();
-        let keys_vec: Vec<u32> = keys.iter().cloned().collect();
+        let keys_vec: Vec<u32> = keys.to_vec();
         let records = processing_job::Entity::find()
             .filter(processing_job::Column::DataCollectionId.is_in(keys_vec))
             .all(&self.0)
@@ -185,7 +207,7 @@ impl Loader<u32> for ProcessingJobParameterDataLoader {
     #[instrument(name = "load_processing_job_parameter", skip(self))]
     async fn load(&self, keys: &[u32]) -> Result<HashMap<u32, Self::Value>, Self::Error> {
         let mut results = HashMap::new();
-        let keys_vec: Vec<u32> = keys.iter().cloned().collect();
+        let keys_vec: Vec<u32> = keys.to_vec();
         let records = processing_job_parameter::Entity::find()
             .filter(processing_job_parameter::Column::ProcessingJobId.is_in(keys_vec))
             .all(&self.0)
@@ -211,7 +233,7 @@ impl Loader<u32> for AutoProcIntegrationDataLoader {
     #[instrument(name = "load_auto_proc_integration", skip(self))]
     async fn load(&self, keys: &[u32]) -> Result<HashMap<u32, Self::Value>, Self::Error> {
         let mut results = HashMap::new();
-        let keys_vec: Vec<u32> = keys.iter().cloned().collect();
+        let keys_vec: Vec<u32> = keys.to_vec();
         let records = auto_proc_integration::Entity::find()
             .filter(auto_proc_integration::Column::DataCollectionId.is_in(keys_vec))
             .all(&self.0)
@@ -237,7 +259,7 @@ impl Loader<u32> for AutoProcProgramDataLoader {
     #[instrument(name = "load_auto_proc_program", skip(self))]
     async fn load(&self, keys: &[u32]) -> Result<HashMap<u32, Self::Value>, Self::Error> {
         let mut results = HashMap::new();
-        let keys_vec: Vec<u32> = keys.iter().cloned().collect();
+        let keys_vec: Vec<u32> = keys.to_vec();
         let records = auto_proc_program::Entity::find()
             .filter(auto_proc_program::Column::AutoProcProgramId.is_in(keys_vec))
             .all(&self.0)
@@ -260,7 +282,7 @@ impl Loader<u32> for AutoProcDataLoader {
     #[instrument(name = "load_auto_proc", skip(self))]
     async fn load(&self, keys: &[u32]) -> Result<HashMap<u32, Self::Value>, Self::Error> {
         let mut results = HashMap::new();
-        let keys_vec: Vec<u32> = keys.iter().cloned().collect();
+        let keys_vec: Vec<u32> = keys.to_vec();
         let records = auto_proc::Entity::find()
             .filter(auto_proc::Column::AutoProcProgramId.is_in(keys_vec))
             .all(&self.0)
@@ -283,7 +305,7 @@ impl Loader<u32> for AutoProcScalingDataLoader {
     #[instrument(name = "load_auto_proc_scaling", skip(self))]
     async fn load(&self, keys: &[u32]) -> Result<HashMap<u32, Self::Value>, Self::Error> {
         let mut results = HashMap::new();
-        let keys_vec: Vec<u32> = keys.iter().cloned().collect();
+        let keys_vec: Vec<u32> = keys.to_vec();
         let records = auto_proc_scaling::Entity::find()
             .filter(auto_proc_scaling::Column::AutoProcId.is_in(keys_vec))
             .all(&self.0)
@@ -299,24 +321,65 @@ impl Loader<u32> for AutoProcScalingDataLoader {
     }
 }
 
-// .filter(
-//     auto_proc_scaling_statistics::Column::AutoProcScalingId
-//         .eq(self.auto_proc_scaling_id),
-// )
-// .one(database)
-// .await?
-// .map(AutoProcScalingStatics::from))
-
-impl Loader<u32> for AutoProcScalingStaticsDL {
+impl Loader<u32> for AutoProcScalingOverall {
     type Value = AutoProcScalingStatics;
     type Error = async_graphql::Error;
 
     #[instrument(name = "load_auto_proc_scaling_statics", skip(self))]
     async fn load(&self, keys: &[u32]) -> Result<HashMap<u32, Self::Value>, Self::Error> {
         let mut results = HashMap::new();
-        let keys_vec: Vec<u32> = keys.iter().cloned().collect();
+        let keys_vec: Vec<u32> = keys.to_vec();
         let records = auto_proc_scaling_statistics::Entity::find()
             .filter(auto_proc_scaling_statistics::Column::AutoProcScalingId.is_in(keys_vec))
+            .filter(auto_proc_scaling_statistics::Column::ScalingStatisticsType.eq("overall"))
+            .all(&self.0)
+            .await?;
+
+        for record in records {
+            let auto_proc_scaling_id = record.auto_proc_scaling_id.unwrap();
+            let data = AutoProcScalingStatics::from(record);
+            results.insert(auto_proc_scaling_id, data);
+        }
+
+        Ok(results)
+    }
+}
+
+impl Loader<u32> for AutoProcScalingInnerShell {
+    type Value = AutoProcScalingStatics;
+    type Error = async_graphql::Error;
+
+    #[instrument(name = "load_auto_proc_scaling_statics", skip(self))]
+    async fn load(&self, keys: &[u32]) -> Result<HashMap<u32, Self::Value>, Self::Error> {
+        let mut results = HashMap::new();
+        let keys_vec: Vec<u32> = keys.to_vec();
+        let records = auto_proc_scaling_statistics::Entity::find()
+            .filter(auto_proc_scaling_statistics::Column::AutoProcScalingId.is_in(keys_vec))
+            .filter(auto_proc_scaling_statistics::Column::ScalingStatisticsType.eq("innerShell"))
+            .all(&self.0)
+            .await?;
+
+        for record in records {
+            let auto_proc_scaling_id = record.auto_proc_scaling_id.unwrap();
+            let data = AutoProcScalingStatics::from(record);
+            results.insert(auto_proc_scaling_id, data);
+        }
+
+        Ok(results)
+    }
+}
+
+impl Loader<u32> for AutoProcScalingOuterShell {
+    type Value = AutoProcScalingStatics;
+    type Error = async_graphql::Error;
+
+    #[instrument(name = "load_auto_proc_scaling_statics", skip(self))]
+    async fn load(&self, keys: &[u32]) -> Result<HashMap<u32, Self::Value>, Self::Error> {
+        let mut results = HashMap::new();
+        let keys_vec: Vec<u32> = keys.to_vec();
+        let records = auto_proc_scaling_statistics::Entity::find()
+            .filter(auto_proc_scaling_statistics::Column::AutoProcScalingId.is_in(keys_vec))
+            .filter(auto_proc_scaling_statistics::Column::ScalingStatisticsType.eq("outerShell"))
             .all(&self.0)
             .await?;
 
@@ -338,7 +401,7 @@ impl DataCollection {
         ctx: &Context<'_>,
     ) -> Result<Option<DataProcessing>, async_graphql::Error> {
         let loader = ctx.data_unchecked::<DataLoader<ProcessedDataLoader>>();
-        Ok(loader.load_one(self.id).await?)
+        loader.load_one(self.id).await
     }
 
     /// Fetched all the processing jobs
@@ -347,7 +410,7 @@ impl DataCollection {
         ctx: &Context<'_>,
     ) -> async_graphql::Result<Option<Vec<ProcessingJob>>, async_graphql::Error> {
         let loader = ctx.data_unchecked::<DataLoader<ProcessingJobDataLoader>>();
-        Ok(loader.load_one(self.id).await?)
+        loader.load_one(self.id).await
     }
 
     /// Fetches all the automatic process
@@ -356,7 +419,7 @@ impl DataCollection {
         ctx: &Context<'_>,
     ) -> async_graphql::Result<Option<Vec<AutoProcIntegration>>, async_graphql::Error> {
         let loader = ctx.data_unchecked::<DataLoader<AutoProcIntegrationDataLoader>>();
-        Ok(loader.load_one(self.id).await?)
+        loader.load_one(self.id).await
     }
 }
 
@@ -387,7 +450,7 @@ impl ProcessingJob {
         ctx: &Context<'_>,
     ) -> async_graphql::Result<Option<Vec<ProcessingJobParameter>>> {
         let loader = ctx.data_unchecked::<DataLoader<ProcessingJobParameterDataLoader>>();
-        Ok(loader.load_one(self.processing_job_id).await?)
+        loader.load_one(self.processing_job_id).await
     }
 }
 
@@ -399,7 +462,7 @@ impl AutoProcIntegration {
         ctx: &Context<'_>,
     ) -> async_graphql::Result<Option<AutoProcProgram>> {
         let loader = ctx.data_unchecked::<DataLoader<AutoProcProgramDataLoader>>();
-        Ok(loader.load_one(self.auto_proc_program_id.unwrap()).await?)
+        loader.load_one(self.auto_proc_program_id.unwrap()).await
     }
 }
 
@@ -408,7 +471,7 @@ impl AutoProcProgram {
     /// Fetched the automatic process
     async fn auto_proc(&self, ctx: &Context<'_>) -> async_graphql::Result<Option<AutoProc>> {
         let loader = ctx.data_unchecked::<DataLoader<AutoProcDataLoader>>();
-        Ok(loader.load_one(self.auto_proc_program_id).await?)
+        loader.load_one(self.auto_proc_program_id).await
     }
 }
 
@@ -417,19 +480,35 @@ impl AutoProc {
     /// Fetches the scaling for automatic process
     async fn scaling(&self, ctx: &Context<'_>) -> async_graphql::Result<Option<AutoProcScaling>> {
         let loader = ctx.data_unchecked::<DataLoader<AutoProcScalingDataLoader>>();
-        Ok(loader.load_one(self.auto_proc_id).await?)
+        loader.load_one(self.auto_proc_id).await
     }
 }
 
 #[ComplexObject]
 impl AutoProcScaling {
     /// Fetches the scaling statistics
-    async fn statistics(
+    async fn overall(
         &self,
         ctx: &Context<'_>,
     ) -> async_graphql::Result<Option<AutoProcScalingStatics>> {
-        let loader = ctx.data_unchecked::<DataLoader<AutoProcScalingStaticsDL>>();
-        Ok(loader.load_one(self.auto_proc_scaling_id).await?)
+        let loader = ctx.data_unchecked::<DataLoader<AutoProcScalingOverall>>();
+        loader.load_one(self.auto_proc_scaling_id).await
+    }
+
+    async fn inner_shell(
+        &self,
+        ctx: &Context<'_>,
+    ) -> async_graphql::Result<Option<AutoProcScalingStatics>> {
+        let loader = ctx.data_unchecked::<DataLoader<AutoProcScalingInnerShell>>();
+        loader.load_one(self.auto_proc_scaling_id).await
+    }
+
+    async fn outer_shell(
+        &self,
+        ctx: &Context<'_>,
+    ) -> async_graphql::Result<Option<AutoProcScalingStatics>> {
+        let loader = ctx.data_unchecked::<DataLoader<AutoProcScalingOuterShell>>();
+        loader.load_one(self.auto_proc_scaling_id).await
     }
 }
 
