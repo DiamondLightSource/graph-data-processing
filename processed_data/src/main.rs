@@ -143,7 +143,7 @@ async fn setup_database(database_url: Url) -> Result<DatabaseConnection, Transac
 }
 
 /// Creates an [`axum::Router`] serving GraphiQL, synchronous GraphQL and GraphQL subscriptions
-fn setup_router(schema: RootSchema) -> Router {
+fn setup_router(schema: RootSchema, database: DatabaseConnection) -> Router {
     #[allow(clippy::missing_docs_in_private_items)]
     const GRAPHQL_ENDPOINT: &str = "/";
 
@@ -153,7 +153,7 @@ fn setup_router(schema: RootSchema) -> Router {
             get(Html(
                 GraphiQLSource::build().endpoint(GRAPHQL_ENDPOINT).finish(),
             ))
-            .post(GraphQLHandler::new(schema)),
+            .post(GraphQLHandler::new(schema, database)),
         )
         .layer(OtelInResponseLayer)
         .layer(OtelAxumLayer::default())
@@ -241,13 +241,12 @@ async fn main() {
         Cli::Serve(args) => {
             setup_telemetry(args.log_level, args.otel_collector_url).unwrap();
             let database = setup_database(args.database_url).await.unwrap();
-            let schema = root_schema_builder(database).finish();
-            let router = setup_router(schema);
+            let schema = root_schema_builder().finish();
+            let router = setup_router(schema, database);
             serve(router, args.port).await.unwrap();
         }
         Cli::Schema(args) => {
-            let database = setup_database(args.database_url).await.unwrap();
-            let schema = root_schema_builder(database).finish();
+            let schema = root_schema_builder().finish();
             let schema_string = schema.sdl_with_options(SDLExportOptions::new().federation());
             if let Some(path) = args.path {
                 let mut file = File::create(path).unwrap();

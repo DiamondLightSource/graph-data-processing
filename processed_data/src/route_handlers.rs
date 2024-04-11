@@ -7,23 +7,23 @@ use axum::{
     response::{IntoResponse, Response},
     RequestExt,
 };
-use axum_extra::{
-    headers::{authorization::Bearer, Authorization},
-    TypedHeader,
-};
+use sea_orm::DatabaseConnection;
 use std::{future::Future, pin::Pin};
+
+use crate::graphql::AddDataLoadersExt;
 
 /// An [`Handler`] which executes an [`Executor`] including the [`Authorization<Bearer>`] in the [`async_graphql::Context`]
 #[derive(Debug, Clone)]
 pub struct GraphQLHandler<E: Executor> {
     /// The GraphQL executor used to process the request
     executor: E,
+    database: DatabaseConnection,
 }
 
 impl<E: Executor> GraphQLHandler<E> {
     /// Constructs an instance of the handler with the provided schema.
-    pub fn new(executor: E) -> Self {
-        Self { executor }
+    pub fn new(executor: E, database: DatabaseConnection) -> Self {
+        Self { executor, database }
     }
 }
 
@@ -33,18 +33,13 @@ where
 {
     type Future = Pin<Box<dyn Future<Output = Response> + Send + 'static>>;
 
-    fn call(self, mut req: Request, _state: S) -> Self::Future {
+    fn call(self, req: Request, _state: S) -> Self::Future {
         Box::pin(async move {
-            let token = req
-                .extract_parts::<TypedHeader<Authorization<Bearer>>>()
-                .await
-                .ok()
-                .map(|token| token.0);
             let request = req.extract::<GraphQLRequest, _>().await;
             match request {
                 Ok(request) => GraphQLResponse::from(
                     self.executor
-                        .execute(request.into_inner().data(token))
+                        .execute(request.into_inner().add_data_loaders(self.database))
                         .await,
                 )
                 .into_response(),

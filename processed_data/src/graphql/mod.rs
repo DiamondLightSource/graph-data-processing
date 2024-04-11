@@ -26,12 +26,14 @@ use self::entities::AutoProcProgram;
 /// The GraphQL schema exposed by the service
 pub type RootSchema = Schema<Query, EmptyMutation, EmptySubscription>;
 
-/// A schema builder for the service
-pub fn root_schema_builder(
-    database: DatabaseConnection,
-) -> SchemaBuilder<Query, EmptyMutation, EmptySubscription> {
-    Schema::build(Query, EmptyMutation, EmptySubscription)
-        .data(DataLoader::new(
+pub trait AddDataLoadersExt {
+    fn add_data_loaders(self, database: DatabaseConnection) -> Self;
+}
+
+impl AddDataLoadersExt for async_graphql::Request {
+    #[instrument(name = "add_data_loaders", skip(self))]
+    fn add_data_loaders(self, database: DatabaseConnection) -> Self {
+        self.data(DataLoader::new(
             ProcessedDataLoader::new(database.clone()),
             tokio::spawn,
         ))
@@ -72,7 +74,12 @@ pub fn root_schema_builder(
             tokio::spawn,
         ))
         .data(database)
-        .enable_federation()
+    }
+}
+
+/// A schema builder for the service
+pub fn root_schema_builder() -> SchemaBuilder<Query, EmptyMutation, EmptySubscription> {
+    Schema::build(Query, EmptyMutation, EmptySubscription).enable_federation()
 }
 
 /// The root query of the service
