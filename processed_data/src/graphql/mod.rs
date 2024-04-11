@@ -8,7 +8,7 @@ use async_graphql::{
 use aws_sdk_s3::presigning::PresigningConfig;
 use entities::{
     AutoProc, AutoProcIntegration, AutoProcScaling, AutoProcScalingStatics, DataCollection,
-    DataProcessing, ProcessingJob, ProcessingJobParameter,
+    DataProcessing, ProcessJob, ProcessingJob, ProcessingJobParameter,
 };
 use models::{
     auto_proc, auto_proc_integration, auto_proc_program, auto_proc_scaling,
@@ -38,10 +38,6 @@ impl AddDataLoadersExt for async_graphql::Request {
         ))
         .data(DataLoader::new(
             ProcessingJobDataLoader::new(database.clone()),
-            tokio::spawn,
-        ))
-        .data(DataLoader::new(
-            ProcessingJobParameterDataLoader::new(database.clone()),
             tokio::spawn,
         ))
         .data(DataLoader::new(
@@ -93,10 +89,6 @@ pub struct ProcessingJobDataLoader {
     database: DatabaseConnection,
     parent_span: Span,
 }
-pub struct ProcessingJobParameterDataLoader {
-    database: DatabaseConnection,
-    parent_span: Span,
-}
 pub struct AutoProcIntegrationDataLoader {
     database: DatabaseConnection,
     parent_span: Span,
@@ -136,15 +128,6 @@ impl ProcessingJobDataLoader {
 }
 
 impl ProcessedDataLoader {
-    fn new(database: DatabaseConnection) -> Self {
-        Self {
-            database,
-            parent_span: Span::current(),
-        }
-    }
-}
-
-impl ProcessingJobParameterDataLoader {
     fn new(database: DatabaseConnection) -> Self {
         Self {
             database,
@@ -242,7 +225,7 @@ impl Loader<u32> for ProcessedDataLoader {
 }
 
 impl Loader<u32> for ProcessingJobDataLoader {
-    type Value = Vec<ProcessingJob>;
+    type Value = Vec<ProcessJob>;
     type Error = async_graphql::Error;
 
     #[instrument(name = "load_processing_job", skip(self))]
@@ -252,47 +235,24 @@ impl Loader<u32> for ProcessingJobDataLoader {
         let mut results = HashMap::new();
         let keys_vec: Vec<u32> = keys.to_vec();
         let records = processing_job::Entity::find()
+            .find_also_related(processing_job_parameter::Entity)
             .filter(processing_job::Column::DataCollectionId.is_in(keys_vec))
             .all(&self.database)
-            .await?;
+            .await?
+            .into_iter()
+            .map(|(job, parameter)| ProcessJob {
+                processing_job: ProcessingJob::from(job),
+                parameters: ProcessingJobParameter::from(parameter.unwrap()),
+            })
+            .collect::<Vec<_>>();
 
         for record in records {
-            let data_collection_id = record.data_collection_id.unwrap();
-            let data = ProcessingJob::from(record);
-
+            let data_collection_id = record.processing_job.data_collection_id.unwrap();
             results
                 .entry(data_collection_id)
                 .or_insert_with(Vec::new)
-                .push(data)
+                .push(record)
         }
-        Ok(results)
-    }
-}
-
-impl Loader<u32> for ProcessingJobParameterDataLoader {
-    type Value = Vec<ProcessingJobParameter>;
-    type Error = async_graphql::Error;
-
-    #[instrument(name = "load_processing_job_parameter", skip(self))]
-    async fn load(&self, keys: &[u32]) -> Result<HashMap<u32, Self::Value>, Self::Error> {
-        let span = tracing::info_span!(parent: &self.parent_span, "load_processed_data");
-        let _span = span.enter();
-        let mut results = HashMap::new();
-        let keys_vec: Vec<u32> = keys.to_vec();
-        let records = processing_job_parameter::Entity::find()
-            .filter(processing_job_parameter::Column::ProcessingJobId.is_in(keys_vec))
-            .all(&self.database)
-            .await?;
-
-        for record in records {
-            let processing_job_id = record.processing_job_id.unwrap();
-            let data = ProcessingJobParameter::from(record);
-            results
-                .entry(processing_job_id)
-                .or_insert_with(Vec::new)
-                .push(data)
-        }
-
         Ok(results)
     }
 }
@@ -493,7 +453,7 @@ impl DataCollection {
     async fn processing_jobs(
         &self,
         ctx: &Context<'_>,
-    ) -> async_graphql::Result<Option<Vec<ProcessingJob>>, async_graphql::Error> {
+    ) -> async_graphql::Result<Option<Vec<ProcessJob>>, async_graphql::Error> {
         let loader = ctx.data_unchecked::<DataLoader<ProcessingJobDataLoader>>();
         loader.load_one(self.id).await
     }
@@ -524,18 +484,6 @@ impl DataProcessing {
             .clone();
         let object_url = Url::parse(&object_uri.to_string())?;
         Ok(object_url.to_string())
-    }
-}
-
-#[ComplexObject]
-impl ProcessingJob {
-    /// Fetches the processing job parameters
-    async fn parameters(
-        &self,
-        ctx: &Context<'_>,
-    ) -> async_graphql::Result<Option<Vec<ProcessingJobParameter>>> {
-        let loader = ctx.data_unchecked::<DataLoader<ProcessingJobParameterDataLoader>>();
-        loader.load_one(self.processing_job_id).await
     }
 }
 

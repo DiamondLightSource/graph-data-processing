@@ -1,0 +1,256 @@
+"""
+Represents an auto processed job
+"""
+type AutoProc @key(fields: "autoProcId autoProcProgramId spaceGroup refinedCellA refinedCellB refinedCellC refinedCellAlpha refinedCellBeta refinedCellGamma", resolvable: false) {
+	"""
+	An opaque unique identifier for the auto processing
+	"""
+	autoProcId: Int!
+	"""
+	An opaque unique identifier for the auto processing program
+	"""
+	autoProcProgramId: Int
+	"""
+	Space group of the processing job
+	"""
+	spaceGroup: String
+	"""
+	Refined cell a in the auto processing job
+	"""
+	refinedCellA: Float
+	"""
+	Refined cell b in the auto processing job
+	"""
+	refinedCellB: Float
+	"""
+	Refined cell c in the auto processing job
+	"""
+	refinedCellC: Float
+	"""
+	Refined cell alpha in the auto processing job
+	"""
+	refinedCellAlpha: Float
+	"""
+	Refined cell beta in the auto processing job
+	"""
+	refinedCellBeta: Float
+	"""
+	Refined cell gamma in the auto processing job
+	"""
+	refinedCellGamma: Float
+	"""
+	Fetches the scaling for automatic process
+	"""
+	scaling: AutoProcScaling
+}
+
+"""
+Represents an auto processing integration
+"""
+type AutoProcIntegration @key(fields: "autoProcIntegrationId dataCollectionId autoProcProgramId refinedXBeam refinedYBeam", resolvable: false) {
+	"""
+	An opaque unique identifier for the auto processing integration
+	"""
+	autoProcIntegrationId: Int!
+	"""
+	An opaque unique identifier for the data collection
+	"""
+	dataCollectionId: Int!
+	"""
+	An opaque unique identifier for the auto processing program
+	"""
+	autoProcProgramId: Int
+	"""
+	Refined X position of the beam
+	"""
+	refinedXBeam: Float
+	"""
+	Refined Y position of the beam
+	"""
+	refinedYBeam: Float
+	"""
+	Fetches the automatically processed programs
+	"""
+	autoProcProgram: AutoProcProgram
+}
+
+"""
+Represents an auto processed program
+"""
+type AutoProcProgram @key(fields: "autoProcProgramId processingPrograms processingStatus processingMessage processingJobId", resolvable: false) {
+	"""
+	An opaque unique identifier for the auto processing program
+	"""
+	autoProcProgramId: Int!
+	"""
+	Name of the processing programs
+	"""
+	processingPrograms: String
+	"""
+	Processing program status
+	"""
+	processingStatus: Int
+	"""
+	Processing program message
+	"""
+	processingMessage: String
+	"""
+	An opaque unique identifier for the  processing processing job
+	"""
+	processingJobId: Int
+	"""
+	Fetched the automatic process
+	"""
+	autoProc: AutoProc
+}
+
+"""
+Represents and auto processing scaling
+"""
+type AutoProcScaling @key(fields: "autoProcScalingId autoProcId", resolvable: false) {
+	"""
+	An opaque unique identifier for the auto processing scaling
+	"""
+	autoProcScalingId: Int!
+	"""
+	An opaque unique identifier for the auto processing
+	"""
+	autoProcId: Int
+	"""
+	Fetches the scaling statistics
+	"""
+	overall: AutoProcScalingStatics
+	innerShell: AutoProcScalingStatics
+	outerShell: AutoProcScalingStatics
+}
+
+"""
+Represents auto processing scaling statics
+"""
+type AutoProcScalingStatics @key(fields: "autoProcScalingStatisticsId autoProcScalingId scalingStatisticsType resolutionLimitLow resolutionLimitHigh rMerge rMeasAllIPlusIMinus nTotalObservations nTotalUniqueObservations meanIOverSigI completeness multiplicity anomalousCompleteness anomalousMultiplicity ccHalf ccAnomalous", resolvable: false) {
+	autoProcScalingStatisticsId: Int!
+	autoProcScalingId: Int
+	scalingStatisticsType: StatisticsType!
+	resolutionLimitLow: Float
+	resolutionLimitHigh: Float
+	rMerge: Float
+	rMeasAllIPlusIMinus: Float
+	nTotalObservations: Int
+	nTotalUniqueObservations: Int
+	meanIOverSigI: Float
+	completeness: Float
+	multiplicity: Float
+	anomalousCompleteness: Float
+	anomalousMultiplicity: Float
+	ccHalf: Float
+	ccAnomalous: Float
+}
+
+
+"""
+Represents processed image file stored in s3 bucket
+"""
+type DataProcessing @key(fields: "id", resolvable: false) {
+	"""
+	An opaque unique identifier for the collected file attachment
+	"""
+	id: Int!
+	"""
+	Gives downloadable link for the processed image in the s3 bucket
+	"""
+	downloadUrl: String!
+}
+
+"""
+Datasets subgraph extension
+"""
+type Datasets @key(fields: "id") {
+	"""
+	An opaque unique identifier for the data collection
+	"""
+	id: Int!
+	"""
+	Fetched all the processed data from data collection during a session
+	"""
+	processedData: DataProcessing
+	"""
+	Fetched all the processing jobs
+	"""
+	processingJobs: [ProcessJob!]
+	"""
+	Fetches all the automatic process
+	"""
+	autoProcIntegration: [AutoProcIntegration!]
+}
+
+
+
+
+"""
+Datasets subgraph extension
+"""
+type ProcessJob @key(fields: "processingJobId", resolvable: false) {
+	processingJobId: Int
+	"""
+	An opaque unique identifier for the data collection
+	"""
+	dataCollectionId: Int
+	"""
+	Processing job display name
+	"""
+	displayName: String
+	"""
+	Represents if the job is automatic or downstream
+	"""
+	automatic: Int
+	processingJobParameterId: Int!
+	parameterKey: String
+	parameterValue: String
+}
+
+"""
+Represents a processing job
+"""
+type ProcessingJob @key(fields: "processingJobId dataCollectionId displayName automatic", resolvable: false) {
+	"""
+	An opaque unique identifier for the processing job
+	"""
+	processingJobId: Int!
+	"""
+	An opaque unique identifier for the data collection
+	"""
+	dataCollectionId: Int
+	"""
+	Processing job display name
+	"""
+	displayName: String
+	"""
+	Represents if the job is automatic or downstream
+	"""
+	automatic: Int
+}
+
+"""
+Represents a processing job parameters
+"""
+type ProcessingJobParameter @key(fields: "processingJobParameterId processingJobId parameterKey parameterValue", resolvable: false) {
+	processingJobParameterId: Int!
+	processingJobId: Int
+	parameterKey: String
+	parameterValue: String
+}
+
+
+enum StatisticsType {
+	OVERALL
+	INNER_SHELL
+	OUTER_SHELL
+}
+
+
+directive @include(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+directive @skip(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+extend schema @link(
+	url: "https://specs.apollo.dev/federation/v2.3",
+	import: ["@key", "@tag", "@shareable", "@inaccessible", "@override", "@external", "@provides", "@requires", "@composeDirective", "@interfaceObject"]
+)

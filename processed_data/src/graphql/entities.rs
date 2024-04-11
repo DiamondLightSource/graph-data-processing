@@ -27,7 +27,7 @@ impl From<data_collection_file_attachment::Model> for DataProcessing {
 
 /// Represents a processing job
 #[derive(Clone, Debug, PartialEq, SimpleObject)]
-#[graphql(name = "ProcessingJob", unresolvable, complex)]
+#[graphql(name = "ProcessingJob", unresolvable)]
 pub struct ProcessingJob {
     /// An opaque unique identifier for the processing job
     pub processing_job_id: u32,
@@ -264,4 +264,14 @@ impl DataProcessing {
 pub struct DataCollection {
     /// An opaque unique identifier for the data collection
     pub id: u32,
+}
+
+/// Datasets subgraph extension
+#[derive(Clone, Debug, PartialEq, SimpleObject)]
+#[graphql(name = "ProcessJob", unresolvable = "processingJobId")]
+pub struct ProcessJob {
+    #[graphql(flatten, external)]
+    pub processing_job: ProcessingJob,
+    #[graphql(flatten, external)]
+    pub parameters: ProcessingJobParameter,
 }
