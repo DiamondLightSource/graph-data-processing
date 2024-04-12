@@ -74,7 +74,7 @@ impl From<processing_job_parameter::Model> for ProcessingJobParameter {
 
 /// Represents an auto processed job
 #[derive(Clone, Debug, PartialEq, SimpleObject)]
-#[graphql(name = "AutoProc", unresolvable, complex)]
+#[graphql(name = "AutoProc", unresolvable)]
 pub struct AutoProc {
     /// An opaque unique identifier for the auto processing
     pub auto_proc_id: u32,
@@ -114,7 +114,7 @@ impl From<auto_proc::Model> for AutoProc {
 
 /// Represents an auto processed program
 #[derive(Clone, Debug, PartialEq, SimpleObject)]
-#[graphql(name = "AutoProcProgram", unresolvable, complex)]
+#[graphql(name = "AutoProcProgram", unresolvable)]
 pub struct AutoProcProgram {
     /// An opaque unique identifier for the auto processing program
     pub auto_proc_program_id: u32,
@@ -170,7 +170,7 @@ impl From<auto_proc_integration::Model> for AutoProcIntegration {
 
 /// Represents and auto processing scaling
 #[derive(Clone, Debug, PartialEq, SimpleObject)]
-#[graphql(name = "AutoProcScaling", unresolvable, complex)]
+#[graphql(name = "AutoProcScaling", unresolvable)]
 pub struct AutoProcScaling {
     /// An opaque unique identifier for the auto processing scaling
     pub auto_proc_scaling_id: u32,
@@ -266,17 +266,39 @@ pub struct DataCollection {
     pub id: u32,
 }
 
-/// Datasets subgraph extension
+/// Combines processing job and its paremeters
 #[derive(Debug, Clone, SimpleObject)]
 #[graphql(name = "ProcessJob", unresolvable = "processingJobId")]
 pub struct ProcessJob {
+    #[graphql(flatten)]
+    /// Represents Processing Job table
     pub processing_job: ProcessingJob,
+    /// Represents Processing Job Parameters table
     pub parameters: Option<ProcessingJobParameter>,
 }
 
+/// Combines auto proc integration and its programs
 #[derive(Debug, Clone, SimpleObject)]
-#[graphql(name = "AutoProcessing", unresolvable = "auto_proc_integration_id")]
+#[graphql(
+    name = "AutoProcessing",
+    unresolvable = "autoProcIntegrationId",
+    complex
+)]
 pub struct AutoProcessing {
+    #[graphql(flatten)]
+    /// Represents auto proc integration table
     pub auto_proc_integration: AutoProcIntegration,
+    /// Represents auto proc program table
     pub auto_proc_program: Option<AutoProcProgram>,
+}
+
+/// Combines autoproc and its scaling and statistics
+#[derive(Debug, Clone, SimpleObject)]
+#[graphql(name = "AutoProcess", unresolvable = "autoProcId", complex)]
+pub struct AutoProcess {
+    #[graphql(flatten)]
+    /// Represents autoproc table
+    pub auto_proc: AutoProc,
+    /// Represents auto proc scaling table
+    pub auto_proc_scaling: Option<AutoProcScaling>,
 }

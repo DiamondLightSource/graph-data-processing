@@ -126,6 +126,7 @@ struct SchemaArgs {
     /// The path to write the schema to, if not set the schema will be printed to stdout
     #[arg(short, long)]
     path: Option<PathBuf>,
+    /// The URL of the ISPyB instance which should be connected to
     #[arg(long, env = "DATABASE_URL")]
     database_url: Url,
 }

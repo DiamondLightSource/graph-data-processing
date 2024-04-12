@@ -17,6 +17,7 @@ use crate::graphql::AddDataLoadersExt;
 pub struct GraphQLHandler<E: Executor> {
     /// The GraphQL executor used to process the request
     executor: E,
+    /// Database connection
     database: DatabaseConnection,
 }
 
