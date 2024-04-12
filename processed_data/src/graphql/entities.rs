@@ -142,7 +142,7 @@ impl From<auto_proc_program::Model> for AutoProcProgram {
 
 /// Represents an auto processing integration
 #[derive(Clone, Debug, PartialEq, SimpleObject)]
-#[graphql(name = "AutoProcIntegration", unresolvable, complex)]
+#[graphql(name = "AutoProcIntegration", unresolvable)]
 pub struct AutoProcIntegration {
     /// An opaque unique identifier for the auto processing integration
     pub auto_proc_integration_id: u32,
@@ -270,7 +270,13 @@ pub struct DataCollection {
 #[derive(Debug, Clone, SimpleObject)]
 #[graphql(name = "ProcessJob", unresolvable = "processingJobId")]
 pub struct ProcessJob {
-    #[graphql(flatten, external)]
     pub processing_job: ProcessingJob,
     pub parameters: Option<ProcessingJobParameter>,
+}
+
+#[derive(Debug, Clone, SimpleObject)]
+#[graphql(name = "AutoProcessing", unresolvable = "auto_proc_integration_id")]
+pub struct AutoProcessing {
+    pub auto_proc_integration: AutoProcIntegration,
+    pub auto_proc_program: Option<AutoProcProgram>,
 }
