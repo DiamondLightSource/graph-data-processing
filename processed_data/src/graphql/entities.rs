@@ -267,11 +267,10 @@ pub struct DataCollection {
 }
 
 /// Datasets subgraph extension
-#[derive(Clone, Debug, PartialEq, SimpleObject)]
+#[derive(Debug, Clone, SimpleObject)]
 #[graphql(name = "ProcessJob", unresolvable = "processingJobId")]
 pub struct ProcessJob {
     #[graphql(flatten, external)]
     pub processing_job: ProcessingJob,
-    #[graphql(flatten, external)]
-    pub parameters: ProcessingJobParameter,
+    pub parameters: Option<ProcessingJobParameter>,
 }

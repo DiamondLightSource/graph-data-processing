@@ -242,7 +242,7 @@ impl Loader<u32> for ProcessingJobDataLoader {
             .into_iter()
             .map(|(job, parameter)| ProcessJob {
                 processing_job: ProcessingJob::from(job),
-                parameters: ProcessingJobParameter::from(parameter.unwrap()),
+                parameters: parameter.map(ProcessingJobParameter::from),
             })
             .collect::<Vec<_>>();
 
