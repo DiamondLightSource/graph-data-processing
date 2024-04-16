@@ -7,9 +7,8 @@ use async_graphql::{
 };
 use aws_sdk_s3::presigning::PresigningConfig;
 use entities::{
-    AutoProc, AutoProcIntegration, AutoProcScaling, AutoProcScalingStatics, AutoProcess,
-    AutoProcessing, DataCollection, DataProcessing, ProcessJob, ProcessingJob,
-    ProcessingJobParameter, StatisticsType,
+    AutoProc, AutoProcScaling, AutoProcScalingStatics, AutoProcess, AutoProcessing, DataCollection,
+    DataProcessing, ProcessJob, ProcessingJob, ProcessingJobParameter, StatisticsType, AP,
 };
 use models::{
     auto_proc, auto_proc_integration, auto_proc_program, auto_proc_scaling,
@@ -24,8 +23,6 @@ use std::time::Duration;
 use std::{collections::HashMap, ops::Deref};
 use tracing::{instrument, Span};
 use url::Url;
-
-use self::entities::AutoProcProgram;
 
 /// The GraphQL schema exposed by the service
 pub type RootSchema = Schema<Query, EmptyMutation, EmptySubscription>;
@@ -210,7 +207,7 @@ impl Loader<u32> for ProcessJobDataLoader {
 }
 
 impl Loader<u32> for AutoProcIntegrationDataLoader {
-    type Value = Vec<AutoProcessing>;
+    type Value = Vec<AP>;
     type Error = async_graphql::Error;
 
     #[instrument(name = "load_auto_proc_integration", skip(self))]
@@ -219,20 +216,99 @@ impl Loader<u32> for AutoProcIntegrationDataLoader {
         let _span = span.enter();
         let mut results = HashMap::new();
         let keys_vec: Vec<u32> = keys.to_vec();
-        let records = auto_proc_integration::Entity::find()
-            .find_also_related(auto_proc_program::Entity)
-            .filter(auto_proc_integration::Column::DataCollectionId.is_in(keys_vec))
-            .all(&self.database)
+
+        let query = sea_query::Query::select()
+            .column(Asterisk)
+            .from(auto_proc_integration::Entity)
+            .left_join(
+                auto_proc_program::Entity,
+                Expr::col((
+                    auto_proc_integration::Entity,
+                    auto_proc_integration::Column::AutoProcProgramId,
+                ))
+                .equals((
+                    auto_proc_program::Entity,
+                    auto_proc_program::Column::AutoProcProgramId,
+                )),
+            )
+            .left_join(
+                auto_proc::Entity,
+                Expr::col((auto_proc::Entity, auto_proc::Column::AutoProcProgramId)).equals((
+                    auto_proc_program::Entity,
+                    auto_proc_program::Column::AutoProcProgramId,
+                )),
+            )
+            .left_join(
+                auto_proc_scaling::Entity,
+                Expr::col((
+                    auto_proc_scaling::Entity,
+                    auto_proc_scaling::Column::AutoProcId,
+                ))
+                .equals((auto_proc::Entity, auto_proc::Column::AutoProcId)),
+            )
+            .and_where(
+                Expr::col(auto_proc_integration::Column::DataCollectionId).is_in(keys_vec.clone()),
+            )
+            .build_any(
+                self.database
+                    .get_database_backend()
+                    .get_query_builder()
+                    .deref(),
+            );
+
+        let records = self
+            .database
+            .query_all(Statement::from_sql_and_values(
+                self.database.get_database_backend(),
+                &query.0,
+                query.1,
+            ))
             .await?
             .into_iter()
-            .map(|(integration, program)| AutoProcessing {
-                auto_proc_integration: AutoProcIntegration::from(integration),
-                auto_proc_program: program.map(AutoProcProgram::from),
+            .map(|record| AP {
+                auto_proc_integration_id: record
+                    .try_get("AutoProcIntegration", "auto_proc_integration_id")
+                    .unwrap(),
+                data_collection_id: record
+                    .try_get("AutoProcIntegration", "data_collection_id")
+                    .unwrap(),
+                auto_proc_program_id: record
+                    .try_get("AutoProcIntegration", "auto_proc_program_id")
+                    .unwrap(),
+                refined_x_beam: record
+                    .try_get("AutoProcIntegration", "refined_x_beam")
+                    .unwrap(),
+                refined_y_beam: record
+                    .try_get("AutoProcIntegration", "refined_y_beam")
+                    .unwrap(),
+                processing_programs: record
+                    .try_get("AutoProcProgram", "processing_programs")
+                    .unwrap(),
+                processing_status: record
+                    .try_get("AutoProcProgram", "processing_status")
+                    .unwrap(),
+                processing_message: record
+                    .try_get("AutoProcProgram", "processing_message")
+                    .unwrap(),
+                processing_job_id: record
+                    .try_get("AutoProcProgram", "processing_job_id")
+                    .unwrap(),
+                auto_proc_id: record.try_get("AutoProc", "auto_proc_id").unwrap(),
+                space_group: record.try_get("AutoProc", "space_group").unwrap(),
+                refined_cell_a: record.try_get("AutoProc", "refined_cell_a").unwrap(),
+                refined_cell_b: record.try_get("AutoProc", "refined_cell_b").unwrap(),
+                refined_cell_c: record.try_get("AutoProc", "refined_cell_c").unwrap(),
+                refined_cell_alpha: record.try_get("AutoProc", "refined_cell_alpha").unwrap(),
+                refined_cell_beta: record.try_get("AutoProc", "refined_cell_beta").unwrap(),
+                refined_cell_gamma: record.try_get("AutoProc", "refined_cell_gamma").unwrap(),
+                auto_proc_scaling_id: record
+                    .try_get("AutoProcScaling", "auto_proc_scaling_id")
+                    .unwrap(),
             })
             .collect::<Vec<_>>();
 
         for record in records {
-            let data_collection_id = record.auto_proc_integration.data_collection_id;
+            let data_collection_id = record.data_collection_id;
             results
                 .entry(data_collection_id)
                 .or_insert_with(Vec::new)
@@ -353,7 +429,7 @@ impl DataCollection {
     async fn auto_proc_integration(
         &self,
         ctx: &Context<'_>,
-    ) -> async_graphql::Result<Option<Vec<AutoProcessing>>, async_graphql::Error> {
+    ) -> async_graphql::Result<Option<Vec<AP>>, async_graphql::Error> {
         let loader = ctx.data_unchecked::<DataLoader<AutoProcIntegrationDataLoader>>();
         loader.load_one(self.id).await
     }

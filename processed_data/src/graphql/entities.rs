@@ -312,3 +312,45 @@ pub struct AutoProcess {
     /// Represents auto proc scaling table
     pub auto_proc_scaling: Option<AutoProcScaling>,
 }
+
+/// Combines autoproc integration, autoproc program, autoproc and autoproc scaling
+#[derive(Debug, Clone, SimpleObject)]
+#[graphql(name = "AP", unresolvable = "auto_proc_integration_id")]
+pub struct AP {
+    /// An opaque unique identifier for the auto processing integration
+    pub auto_proc_integration_id: u32,
+    /// An opaque unique identifier for the data collection
+    pub data_collection_id: u32,
+    /// An opaque unique identifier for the auto processing program
+    pub auto_proc_program_id: Option<u32>,
+    /// Refined X position of the beam
+    pub refined_x_beam: Option<f32>,
+    /// Refined Y position of the beam
+    pub refined_y_beam: Option<f32>,
+    /// Name of the processing programs
+    pub processing_programs: Option<String>,
+    /// Processing program status
+    pub processing_status: Option<i8>,
+    /// Processing program message
+    pub processing_message: Option<String>,
+    /// An opaque unique identifier for the  processing processing job
+    pub processing_job_id: Option<u32>,
+    /// An opaque unique identifier for the auto processing
+    pub auto_proc_id: u32,
+    /// Space group of the processing job
+    pub space_group: Option<String>,
+    /// Refined cell a in the auto processing job
+    pub refined_cell_a: Option<f32>,
+    /// Refined cell b in the auto processing job
+    pub refined_cell_b: Option<f32>,
+    /// Refined cell c in the auto processing job
+    pub refined_cell_c: Option<f32>,
+    /// Refined cell alpha in the auto processing job
+    pub refined_cell_alpha: Option<f32>,
+    /// Refined cell beta in the auto processing job
+    pub refined_cell_beta: Option<f32>,
+    /// Refined cell gamma in the auto processing job
+    pub refined_cell_gamma: Option<f32>,
+    /// An opaque unique identifier for the auto processing scaling
+    pub auto_proc_scaling_id: u32,
+}
