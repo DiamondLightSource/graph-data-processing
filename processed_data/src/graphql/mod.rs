@@ -16,7 +16,8 @@ use models::{
     processing_job_parameter,
 };
 use sea_orm::{
-    ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, QueryFilter, Statement,
+    ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, FromQueryResult, QueryFilter,
+    Statement,
 };
 use sea_query::{self, Asterisk, Expr};
 use std::time::Duration;
@@ -267,42 +268,42 @@ impl Loader<u32> for AutoProcIntegrationDataLoader {
             .into_iter()
             .map(|record| AP {
                 auto_proc_integration_id: record
-                    .try_get("", "auto_proc_integration_id")
+                    .try_get("", "autoProcIntegrationId")
                     .unwrap(),
                 data_collection_id: record
-                    .try_get("", "data_collection_id")
+                    .try_get("", "dataCollectionId")
                     .unwrap(),
                 auto_proc_program_id: record
-                    .try_get("", "auto_proc_program_id")
+                    .try_get("", "autoProcProgramId")
                     .unwrap(),
                 refined_x_beam: record
-                    .try_get("", "refined_x_beam")
+                    .try_get("", "refinedXBeam")
                     .unwrap(),
                 refined_y_beam: record
-                    .try_get("", "refined_y_beam")
+                    .try_get("", "refinedYBeam")
                     .unwrap(),
                 processing_programs: record
-                    .try_get("", "processing_programs")
+                    .try_get("", "processingPrograms")
                     .unwrap(),
                 processing_status: record
-                    .try_get("", "processing_status")
+                    .try_get("", "processingStatus")
                     .unwrap(),
                 processing_message: record
-                    .try_get("", "processing_message")
+                    .try_get("", "processingMessage")
                     .unwrap(),
                 processing_job_id: record
-                    .try_get("", "processing_job_id")
+                    .try_get("", "processingJobId")
                     .unwrap(),
-                auto_proc_id: record.try_get("", "auto_proc_id").unwrap(),
-                space_group: record.try_get("", "space_group").unwrap(),
-                refined_cell_a: record.try_get("", "refined_cell_a").unwrap(),
-                refined_cell_b: record.try_get("", "refined_cell_b").unwrap(),
-                refined_cell_c: record.try_get("", "refined_cell_c").unwrap(),
-                refined_cell_alpha: record.try_get("", "refined_cell_alpha").unwrap(),
-                refined_cell_beta: record.try_get("", "refined_cell_beta").unwrap(),
-                refined_cell_gamma: record.try_get("", "refined_cell_gamma").unwrap(),
+                auto_proc_id: record.try_get("", "autoProcId").unwrap(),
+                space_group: record.try_get("", "spaceGroup").unwrap(),
+                refined_cell_a: record.try_get("", "refinedCell_a").unwrap(),
+                refined_cell_b: record.try_get("", "refinedCell_b").unwrap(),
+                refined_cell_c: record.try_get("", "refinedCell_c").unwrap(),
+                refined_cell_alpha: record.try_get("", "refinedCell_alpha").unwrap(),
+                refined_cell_beta: record.try_get("", "refinedCell_beta").unwrap(),
+                refined_cell_gamma: record.try_get("", "refinedCell_gamma").unwrap(),
                 auto_proc_scaling_id: record
-                    .try_get("", "auto_proc_scaling_id")
+                    .try_get("", "autoProcScalingId")
                     .unwrap(),
             })
             .collect::<Vec<_>>();

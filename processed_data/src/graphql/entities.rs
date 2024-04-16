@@ -4,6 +4,7 @@ use models::{
     auto_proc_scaling_statistics, data_collection_file_attachment, processing_job,
     processing_job_parameter, sea_orm_active_enums::ScalingStatisticsType,
 };
+use sea_orm::FromQueryResult;
 
 /// Represents processed image file stored in s3 bucket
 #[derive(Clone, Debug, PartialEq, SimpleObject)]
