@@ -187,12 +187,22 @@ impl From<auto_proc_scaling::Model> for AutoProcScaling {
     }
 }
 
-#[derive(Enum, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Enum, Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[allow(clippy::missing_docs_in_private_items)]
 pub enum StatisticsType {
     Overall,
     InnerShell,
     OuterShell,
+}
+
+impl ToString for StatisticsType {
+    fn to_string(&self) -> String {
+        match self {
+            StatisticsType::Overall => "overall".to_string(),
+            StatisticsType::InnerShell => "innershell".to_string(),
+            StatisticsType::OuterShell => "outershell".to_string(),
+        }
+    }
 }
 
 /// Represents auto processing scaling statics

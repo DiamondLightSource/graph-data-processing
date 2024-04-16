@@ -9,16 +9,19 @@ use aws_sdk_s3::presigning::PresigningConfig;
 use entities::{
     AutoProc, AutoProcIntegration, AutoProcScaling, AutoProcScalingStatics, AutoProcess,
     AutoProcessing, DataCollection, DataProcessing, ProcessJob, ProcessingJob,
-    ProcessingJobParameter,
+    ProcessingJobParameter, StatisticsType,
 };
 use models::{
     auto_proc, auto_proc_integration, auto_proc_program, auto_proc_scaling,
     auto_proc_scaling_statistics, data_collection_file_attachment, processing_job,
     processing_job_parameter,
 };
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
-use std::collections::HashMap;
+use sea_orm::{
+    ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, QueryFilter, Statement,
+};
+use sea_query::{self, Asterisk, Expr};
 use std::time::Duration;
+use std::{collections::HashMap, ops::Deref};
 use tracing::{instrument, Span};
 use url::Url;
 
@@ -52,15 +55,7 @@ impl AddDataLoadersExt for async_graphql::Request {
             tokio::spawn,
         ))
         .data(DataLoader::new(
-            AutoProcScalingOverall::new(database.clone()),
-            tokio::spawn,
-        ))
-        .data(DataLoader::new(
-            AutoProcScalingInnerShell::new(database.clone()),
-            tokio::spawn,
-        ))
-        .data(DataLoader::new(
-            AutoProcScalingOuterShell::new(database.clone()),
+            AutoProcScalingDataLoader::new(database.clone()),
             tokio::spawn,
         ))
         .data(database)
@@ -101,19 +96,7 @@ pub struct AutoProcessingDataLoader {
 }
 /// DataLoader for overall statistics type
 #[allow(clippy::missing_docs_in_private_items)]
-pub struct AutoProcScalingOverall {
-    database: DatabaseConnection,
-    parent_span: Span,
-}
-/// DataLoader for innershell statistics type
-#[allow(clippy::missing_docs_in_private_items)]
-pub struct AutoProcScalingInnerShell {
-    database: DatabaseConnection,
-    parent_span: Span,
-}
-/// DataLoader for outershell statistics type
-#[allow(clippy::missing_docs_in_private_items)]
-pub struct AutoProcScalingOuterShell {
+pub struct AutoProcScalingDataLoader {
     database: DatabaseConnection,
     parent_span: Span,
 }
@@ -159,27 +142,7 @@ impl AutoProcessingDataLoader {
 }
 
 #[allow(clippy::missing_docs_in_private_items)]
-impl AutoProcScalingOverall {
-    fn new(database: DatabaseConnection) -> Self {
-        Self {
-            database,
-            parent_span: Span::current(),
-        }
-    }
-}
-
-#[allow(clippy::missing_docs_in_private_items)]
-impl AutoProcScalingInnerShell {
-    fn new(database: DatabaseConnection) -> Self {
-        Self {
-            database,
-            parent_span: Span::current(),
-        }
-    }
-}
-
-#[allow(clippy::missing_docs_in_private_items)]
-impl AutoProcScalingOuterShell {
+impl AutoProcScalingDataLoader {
     fn new(database: DatabaseConnection) -> Self {
         Self {
             database,
@@ -311,79 +274,55 @@ impl Loader<u32> for AutoProcessingDataLoader {
     }
 }
 
-impl Loader<u32> for AutoProcScalingOverall {
+impl Loader<(u32, StatisticsType)> for AutoProcScalingDataLoader {
     type Value = AutoProcScalingStatics;
     type Error = async_graphql::Error;
 
-    #[instrument(name = "load_auto_proc_overall", skip(self))]
-    async fn load(&self, keys: &[u32]) -> Result<HashMap<u32, Self::Value>, Self::Error> {
-        let span = tracing::info_span!(parent: &self.parent_span, "load_auto_proc_overall");
+    #[instrument(name = "load_auto_proc_scaling", skip(self))]
+    #[allow(clippy::type_complexity)]
+    async fn load(
+        &self,
+        keys: &[(u32, StatisticsType)],
+    ) -> Result<HashMap<(u32, StatisticsType), Self::Value>, Self::Error> {
+        let span = tracing::info_span!(parent: &self.parent_span, "load_auto_proc_scaling");
         let _span = span.enter();
         let mut results = HashMap::new();
-        let keys_vec: Vec<u32> = keys.to_vec();
+        let query = sea_query::Query::select()
+            .column(Asterisk)
+            .from(auto_proc_scaling_statistics::Entity)
+            .and_where(
+                Expr::tuple([
+                    Expr::col(auto_proc_scaling_statistics::Column::AutoProcScalingId).into(),
+                    Expr::col(auto_proc_scaling_statistics::Column::ScalingStatisticsType).into(),
+                ])
+                .in_tuples(
+                    keys.iter()
+                        .map(|(id, stat_type)| (*id, stat_type.to_string())),
+                ),
+            )
+            .build_any(
+                self.database
+                    .get_database_backend()
+                    .get_query_builder()
+                    .deref(),
+            );
+
         let records = auto_proc_scaling_statistics::Entity::find()
-            .filter(auto_proc_scaling_statistics::Column::AutoProcScalingId.is_in(keys_vec))
-            .filter(auto_proc_scaling_statistics::Column::ScalingStatisticsType.eq("overall"))
+            .from_raw_sql(Statement::from_sql_and_values(
+                self.database.get_database_backend(),
+                query.0,
+                query.1,
+            ))
             .all(&self.database)
             .await?;
 
         for record in records {
-            let auto_proc_scaling_id = record.auto_proc_scaling_id.unwrap();
+            let keys: (u32, StatisticsType) = (
+                record.auto_proc_scaling_id.unwrap(),
+                record.scaling_statistics_type.into(),
+            );
             let data = AutoProcScalingStatics::from(record);
-            results.insert(auto_proc_scaling_id, data);
-        }
-
-        Ok(results)
-    }
-}
-
-impl Loader<u32> for AutoProcScalingInnerShell {
-    type Value = AutoProcScalingStatics;
-    type Error = async_graphql::Error;
-
-    #[instrument(name = "load_auto_proc_innershell", skip(self))]
-    async fn load(&self, keys: &[u32]) -> Result<HashMap<u32, Self::Value>, Self::Error> {
-        let span = tracing::info_span!(parent: &self.parent_span, "load_auto_proc_innershedll");
-        let _span = span.enter();
-        let mut results = HashMap::new();
-        let keys_vec: Vec<u32> = keys.to_vec();
-        let records = auto_proc_scaling_statistics::Entity::find()
-            .filter(auto_proc_scaling_statistics::Column::AutoProcScalingId.is_in(keys_vec))
-            .filter(auto_proc_scaling_statistics::Column::ScalingStatisticsType.eq("innerShell"))
-            .all(&self.database)
-            .await?;
-
-        for record in records {
-            let auto_proc_scaling_id = record.auto_proc_scaling_id.unwrap();
-            let data = AutoProcScalingStatics::from(record);
-            results.insert(auto_proc_scaling_id, data);
-        }
-
-        Ok(results)
-    }
-}
-
-impl Loader<u32> for AutoProcScalingOuterShell {
-    type Value = AutoProcScalingStatics;
-    type Error = async_graphql::Error;
-
-    #[instrument(name = "load_auto_proc_scaling_outershell", skip(self))]
-    async fn load(&self, keys: &[u32]) -> Result<HashMap<u32, Self::Value>, Self::Error> {
-        let span =
-            tracing::info_span!(parent: &self.parent_span, "load_auto_proc_scaling_outershell");
-        let _span = span.enter();
-        let mut results = HashMap::new();
-        let keys_vec: Vec<u32> = keys.to_vec();
-        let records = auto_proc_scaling_statistics::Entity::find()
-            .filter(auto_proc_scaling_statistics::Column::AutoProcScalingId.is_in(keys_vec))
-            .filter(auto_proc_scaling_statistics::Column::ScalingStatisticsType.eq("outerShell"))
-            .all(&self.database)
-            .await?;
-
-        for record in records {
-            let auto_proc_scaling_id = record.auto_proc_scaling_id.unwrap();
-            let data = AutoProcScalingStatics::from(record);
-            results.insert(auto_proc_scaling_id, data);
+            results.insert(keys, data);
         }
 
         Ok(results)
@@ -456,11 +395,13 @@ impl AutoProcess {
         &self,
         ctx: &Context<'_>,
     ) -> async_graphql::Result<Option<AutoProcScalingStatics>> {
-        let loader = ctx.data_unchecked::<DataLoader<AutoProcScalingOverall>>();
+        let loader = ctx.data_unchecked::<DataLoader<AutoProcScalingDataLoader>>();
         let id = <Option<entities::AutoProcScaling> as Clone>::clone(&self.auto_proc_scaling)
             .unwrap()
             .auto_proc_id;
-        loader.load_one(id.unwrap()).await
+        loader
+            .load_one((id.unwrap(), StatisticsType::Overall))
+            .await
     }
 
     /// Fetches the innershell scaling statistics type
@@ -468,11 +409,13 @@ impl AutoProcess {
         &self,
         ctx: &Context<'_>,
     ) -> async_graphql::Result<Option<AutoProcScalingStatics>> {
-        let loader = ctx.data_unchecked::<DataLoader<AutoProcScalingInnerShell>>();
+        let loader = ctx.data_unchecked::<DataLoader<AutoProcScalingDataLoader>>();
         let id = <Option<entities::AutoProcScaling> as Clone>::clone(&self.auto_proc_scaling)
             .unwrap()
             .auto_proc_id;
-        loader.load_one(id.unwrap()).await
+        loader
+            .load_one((id.unwrap(), StatisticsType::InnerShell))
+            .await
     }
 
     /// Fetches the outershell scaling statistics type
@@ -480,11 +423,13 @@ impl AutoProcess {
         &self,
         ctx: &Context<'_>,
     ) -> async_graphql::Result<Option<AutoProcScalingStatics>> {
-        let loader = ctx.data_unchecked::<DataLoader<AutoProcScalingOuterShell>>();
+        let loader = ctx.data_unchecked::<DataLoader<AutoProcScalingDataLoader>>();
         let id = <Option<entities::AutoProcScaling> as Clone>::clone(&self.auto_proc_scaling)
             .unwrap()
             .auto_proc_id;
-        loader.load_one(id.unwrap()).await
+        loader
+            .load_one((id.unwrap(), StatisticsType::OuterShell))
+            .await
     }
 }
 
