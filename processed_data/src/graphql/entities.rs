@@ -315,7 +315,7 @@ pub struct AutoProcess {
 
 /// Combines autoproc integration, autoproc program, autoproc and autoproc scaling
 #[derive(Debug, Clone, SimpleObject)]
-#[graphql(name = "AP", unresolvable = "auto_proc_integration_id")]
+#[graphql(name = "AP", unresolvable = "autoProcIntegrationId")]
 pub struct AP {
     /// An opaque unique identifier for the auto processing integration
     pub auto_proc_integration_id: u32,

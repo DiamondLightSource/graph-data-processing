@@ -267,42 +267,42 @@ impl Loader<u32> for AutoProcIntegrationDataLoader {
             .into_iter()
             .map(|record| AP {
                 auto_proc_integration_id: record
-                    .try_get("AutoProcIntegration", "auto_proc_integration_id")
+                    .try_get("", "auto_proc_integration_id")
                     .unwrap(),
                 data_collection_id: record
-                    .try_get("AutoProcIntegration", "data_collection_id")
+                    .try_get("", "data_collection_id")
                     .unwrap(),
                 auto_proc_program_id: record
-                    .try_get("AutoProcIntegration", "auto_proc_program_id")
+                    .try_get("", "auto_proc_program_id")
                     .unwrap(),
                 refined_x_beam: record
-                    .try_get("AutoProcIntegration", "refined_x_beam")
+                    .try_get("", "refined_x_beam")
                     .unwrap(),
                 refined_y_beam: record
-                    .try_get("AutoProcIntegration", "refined_y_beam")
+                    .try_get("", "refined_y_beam")
                     .unwrap(),
                 processing_programs: record
-                    .try_get("AutoProcProgram", "processing_programs")
+                    .try_get("", "processing_programs")
                     .unwrap(),
                 processing_status: record
-                    .try_get("AutoProcProgram", "processing_status")
+                    .try_get("", "processing_status")
                     .unwrap(),
                 processing_message: record
-                    .try_get("AutoProcProgram", "processing_message")
+                    .try_get("", "processing_message")
                     .unwrap(),
                 processing_job_id: record
-                    .try_get("AutoProcProgram", "processing_job_id")
+                    .try_get("", "processing_job_id")
                     .unwrap(),
-                auto_proc_id: record.try_get("AutoProc", "auto_proc_id").unwrap(),
-                space_group: record.try_get("AutoProc", "space_group").unwrap(),
-                refined_cell_a: record.try_get("AutoProc", "refined_cell_a").unwrap(),
-                refined_cell_b: record.try_get("AutoProc", "refined_cell_b").unwrap(),
-                refined_cell_c: record.try_get("AutoProc", "refined_cell_c").unwrap(),
-                refined_cell_alpha: record.try_get("AutoProc", "refined_cell_alpha").unwrap(),
-                refined_cell_beta: record.try_get("AutoProc", "refined_cell_beta").unwrap(),
-                refined_cell_gamma: record.try_get("AutoProc", "refined_cell_gamma").unwrap(),
+                auto_proc_id: record.try_get("", "auto_proc_id").unwrap(),
+                space_group: record.try_get("", "space_group").unwrap(),
+                refined_cell_a: record.try_get("", "refined_cell_a").unwrap(),
+                refined_cell_b: record.try_get("", "refined_cell_b").unwrap(),
+                refined_cell_c: record.try_get("", "refined_cell_c").unwrap(),
+                refined_cell_alpha: record.try_get("", "refined_cell_alpha").unwrap(),
+                refined_cell_beta: record.try_get("", "refined_cell_beta").unwrap(),
+                refined_cell_gamma: record.try_get("", "refined_cell_gamma").unwrap(),
                 auto_proc_scaling_id: record
-                    .try_get("AutoProcScaling", "auto_proc_scaling_id")
+                    .try_get("", "auto_proc_scaling_id")
                     .unwrap(),
             })
             .collect::<Vec<_>>();
