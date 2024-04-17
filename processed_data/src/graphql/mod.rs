@@ -7,8 +7,8 @@ use async_graphql::{
 };
 use aws_sdk_s3::presigning::PresigningConfig;
 use entities::{
-    AutoProcScalingStatics, AutoProcessing, DataCollection, DataProcessing, ProcessJob,
-    ProcessingJob, ProcessingJobParameter, StatisticsType,
+    AutoProcScalingStatics, AutoProcessing, DataCollection, DataProcessing, ProcessingJob,
+    StatisticsType,
 };
 use models::{
     auto_proc, auto_proc_integration, auto_proc_program, auto_proc_scaling,
@@ -40,7 +40,7 @@ impl AddDataLoadersExt for async_graphql::Request {
             tokio::spawn,
         ))
         .data(DataLoader::new(
-            ProcessJobDataLoader::new(database.clone()),
+            ProcessingJobDataLoader::new(database.clone()),
             tokio::spawn,
         ))
         .data(DataLoader::new(
@@ -71,7 +71,7 @@ pub struct ProcessedDataLoader {
 }
 /// DataLoader for Process Job
 #[allow(clippy::missing_docs_in_private_items)]
-pub struct ProcessJobDataLoader {
+pub struct ProcessingJobDataLoader {
     database: DatabaseConnection,
     parent_span: Span,
 }
@@ -89,7 +89,7 @@ pub struct AutoProcScalingDataLoader {
 }
 
 #[allow(clippy::missing_docs_in_private_items)]
-impl ProcessJobDataLoader {
+impl ProcessingJobDataLoader {
     fn new(database: DatabaseConnection) -> Self {
         Self {
             database,
@@ -153,8 +153,8 @@ impl Loader<u32> for ProcessedDataLoader {
     }
 }
 
-impl Loader<u32> for ProcessJobDataLoader {
-    type Value = Vec<ProcessJob>;
+impl Loader<u32> for ProcessingJobDataLoader {
+    type Value = Vec<ProcessingJob>;
     type Error = async_graphql::Error;
 
     #[instrument(name = "load_process_job", skip(self))]
@@ -163,20 +163,43 @@ impl Loader<u32> for ProcessJobDataLoader {
         let _span = span.enter();
         let mut results = HashMap::new();
         let keys_vec: Vec<u32> = keys.to_vec();
-        let records = processing_job::Entity::find()
-            .find_also_related(processing_job_parameter::Entity)
-            .filter(processing_job::Column::DataCollectionId.is_in(keys_vec))
-            .all(&self.database)
+
+        let query = sea_query::Query::select()
+            .column(Asterisk)
+            .from(processing_job::Entity)
+            .left_join(
+                processing_job_parameter::Entity,
+                Expr::col((
+                    processing_job::Entity,
+                    processing_job::Column::ProcessingJobId,
+                ))
+                .equals((
+                    processing_job_parameter::Entity,
+                    processing_job_parameter::Column::ProcessingJobId,
+                )),
+            )
+            .and_where(Expr::col(processing_job::Column::DataCollectionId).is_in(keys_vec.clone()))
+            .build_any(
+                self.database
+                    .get_database_backend()
+                    .get_query_builder()
+                    .deref(),
+            );
+
+        let records = self
+            .database
+            .query_all(Statement::from_sql_and_values(
+                self.database.get_database_backend(),
+                &query.0,
+                query.1,
+            ))
             .await?
             .into_iter()
-            .map(|(job, parameter)| ProcessJob {
-                processing_job: ProcessingJob::from(job),
-                parameters: parameter.map(ProcessingJobParameter::from),
-            })
+            .map(ProcessingJob::from)
             .collect::<Vec<_>>();
 
         for record in records {
-            let data_collection_id = record.processing_job.data_collection_id.unwrap();
+            let data_collection_id = record.data_collection_id.unwrap();
             results
                 .entry(data_collection_id)
                 .or_insert_with(Vec::new)
@@ -245,26 +268,7 @@ impl Loader<u32> for AutoProcessingDataLoader {
             ))
             .await?
             .into_iter()
-            .map(|record| AutoProcessing {
-                auto_proc_integration_id: record.try_get("", "autoProcIntegrationId").unwrap(),
-                data_collection_id: record.try_get("", "dataCollectionId").unwrap(),
-                auto_proc_program_id: record.try_get("", "autoProcProgramId").unwrap_or(None),
-                refined_x_beam: record.try_get("", "refinedXBeam").unwrap_or(None),
-                refined_y_beam: record.try_get("", "refinedYBeam").unwrap_or(None),
-                processing_programs: record.try_get("", "processingPrograms").unwrap_or(None),
-                processing_status: record.try_get("", "processingStatus").unwrap_or(None),
-                processing_message: record.try_get("", "processingMessage").unwrap_or(None),
-                processing_job_id: record.try_get("", "processingJobId").unwrap_or(None),
-                auto_proc_id: record.try_get("", "autoProcId").unwrap_or(None),
-                space_group: record.try_get("", "spaceGroup").unwrap_or(None),
-                refined_cell_a: record.try_get("", "refinedCell_a").unwrap_or(None),
-                refined_cell_b: record.try_get("", "refinedCell_b").unwrap_or(None),
-                refined_cell_c: record.try_get("", "refinedCell_c").unwrap_or(None),
-                refined_cell_alpha: record.try_get("", "refinedCell_alpha").unwrap_or(None),
-                refined_cell_beta: record.try_get("", "refinedCell_beta").unwrap_or(None),
-                refined_cell_gamma: record.try_get("", "refinedCell_gamma").unwrap_or(None),
-                auto_proc_scaling_id: record.try_get("", "autoProcScalingId").unwrap_or(None),
-            })
+            .map(AutoProcessing::from)
             .collect::<Vec<_>>();
 
         for record in records {
@@ -349,8 +353,8 @@ impl DataCollection {
     async fn processing_jobs(
         &self,
         ctx: &Context<'_>,
-    ) -> async_graphql::Result<Option<Vec<ProcessJob>>, async_graphql::Error> {
-        let loader = ctx.data_unchecked::<DataLoader<ProcessJobDataLoader>>();
+    ) -> async_graphql::Result<Option<Vec<ProcessingJob>>, async_graphql::Error> {
+        let loader = ctx.data_unchecked::<DataLoader<ProcessingJobDataLoader>>();
         loader.load_one(self.id).await
     }
 
@@ -391,9 +395,12 @@ impl AutoProcessing {
         ctx: &Context<'_>,
     ) -> async_graphql::Result<Option<AutoProcScalingStatics>> {
         let loader = ctx.data_unchecked::<DataLoader<AutoProcScalingDataLoader>>();
-        loader
-            .load_one((self.auto_proc_id.unwrap(), StatisticsType::Overall))
-            .await
+        match self.auto_proc_id {
+            Some(id) => loader
+                .load_one((id,  StatisticsType::Overall))
+                .await,
+            None => Ok(None)
+        }
     }
 
     /// Fetches the innershell scaling statistics type
@@ -402,9 +409,13 @@ impl AutoProcessing {
         ctx: &Context<'_>,
     ) -> async_graphql::Result<Option<AutoProcScalingStatics>> {
         let loader = ctx.data_unchecked::<DataLoader<AutoProcScalingDataLoader>>();
-        loader
-            .load_one((self.auto_proc_id.unwrap(), StatisticsType::InnerShell))
-            .await
+        match self.auto_proc_id {
+            Some(id) => loader
+                .load_one((id,  StatisticsType::InnerShell))
+                .await,
+            None => Ok(None)
+        }
+
     }
 
     /// Fetches the outershell scaling statistics type
@@ -413,9 +424,12 @@ impl AutoProcessing {
         ctx: &Context<'_>,
     ) -> async_graphql::Result<Option<AutoProcScalingStatics>> {
         let loader = ctx.data_unchecked::<DataLoader<AutoProcScalingDataLoader>>();
-        loader
-            .load_one((self.auto_proc_id.unwrap(), StatisticsType::OuterShell))
-            .await
+        match self.auto_proc_id {
+            Some(id) => loader
+                .load_one((id, StatisticsType::OuterShell))
+                .await,
+            None => Ok(None)
+        }
     }
 }
 
