@@ -16,8 +16,7 @@ use models::{
     processing_job_parameter,
 };
 use sea_orm::{
-    ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, FromQueryResult, QueryFilter,
-    Statement,
+    ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, QueryFilter, Statement,
 };
 use sea_query::{self, Asterisk, Expr};
 use std::time::Duration;
@@ -267,44 +266,24 @@ impl Loader<u32> for AutoProcIntegrationDataLoader {
             .await?
             .into_iter()
             .map(|record| AP {
-                auto_proc_integration_id: record
-                    .try_get("", "autoProcIntegrationId")
-                    .unwrap(),
-                data_collection_id: record
-                    .try_get("", "dataCollectionId")
-                    .unwrap(),
-                auto_proc_program_id: record
-                    .try_get("", "autoProcProgramId")
-                    .unwrap(),
-                refined_x_beam: record
-                    .try_get("", "refinedXBeam")
-                    .unwrap(),
-                refined_y_beam: record
-                    .try_get("", "refinedYBeam")
-                    .unwrap(),
-                processing_programs: record
-                    .try_get("", "processingPrograms")
-                    .unwrap(),
-                processing_status: record
-                    .try_get("", "processingStatus")
-                    .unwrap(),
-                processing_message: record
-                    .try_get("", "processingMessage")
-                    .unwrap(),
-                processing_job_id: record
-                    .try_get("", "processingJobId")
-                    .unwrap(),
-                auto_proc_id: record.try_get("", "autoProcId").unwrap(),
-                space_group: record.try_get("", "spaceGroup").unwrap(),
-                refined_cell_a: record.try_get("", "refinedCell_a").unwrap(),
-                refined_cell_b: record.try_get("", "refinedCell_b").unwrap(),
-                refined_cell_c: record.try_get("", "refinedCell_c").unwrap(),
-                refined_cell_alpha: record.try_get("", "refinedCell_alpha").unwrap(),
-                refined_cell_beta: record.try_get("", "refinedCell_beta").unwrap(),
-                refined_cell_gamma: record.try_get("", "refinedCell_gamma").unwrap(),
-                auto_proc_scaling_id: record
-                    .try_get("", "autoProcScalingId")
-                    .unwrap(),
+                auto_proc_integration_id: record.try_get("", "autoProcIntegrationId").unwrap(),
+                data_collection_id: record.try_get("", "dataCollectionId").unwrap(),
+                auto_proc_program_id: record.try_get("", "autoProcProgramId").unwrap_or(None),
+                refined_x_beam: record.try_get("", "refinedXBeam").unwrap_or(None),
+                refined_y_beam: record.try_get("", "refinedYBeam").unwrap_or(None),
+                processing_programs: record.try_get("", "processingPrograms").unwrap_or(None),
+                processing_status: record.try_get("", "processingStatus").unwrap_or(None),
+                processing_message: record.try_get("", "processingMessage").unwrap_or(None),
+                processing_job_id: record.try_get("", "processingJobId").unwrap_or(None),
+                auto_proc_id: record.try_get("", "autoProcId").unwrap_or(None),
+                space_group: record.try_get("", "spaceGroup").unwrap_or(None),
+                refined_cell_a: record.try_get("", "refinedCell_a").unwrap_or(None),
+                refined_cell_b: record.try_get("", "refinedCell_b").unwrap_or(None),
+                refined_cell_c: record.try_get("", "refinedCell_c").unwrap_or(None),
+                refined_cell_alpha: record.try_get("", "refinedCell_alpha").unwrap_or(None),
+                refined_cell_beta: record.try_get("", "refinedCell_beta").unwrap_or(None),
+                refined_cell_gamma: record.try_get("", "refinedCell_gamma").unwrap_or(None),
+                auto_proc_scaling_id: record.try_get("", "autoProcScalingId").unwrap_or(None),
             })
             .collect::<Vec<_>>();
 

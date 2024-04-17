@@ -4,7 +4,6 @@ use models::{
     auto_proc_scaling_statistics, data_collection_file_attachment, processing_job,
     processing_job_parameter, sea_orm_active_enums::ScalingStatisticsType,
 };
-use sea_orm::FromQueryResult;
 
 /// Represents processed image file stored in s3 bucket
 #[derive(Clone, Debug, PartialEq, SimpleObject)]
@@ -337,7 +336,7 @@ pub struct AP {
     /// An opaque unique identifier for the  processing processing job
     pub processing_job_id: Option<u32>,
     /// An opaque unique identifier for the auto processing
-    pub auto_proc_id: u32,
+    pub auto_proc_id: Option<u32>,
     /// Space group of the processing job
     pub space_group: Option<String>,
     /// Refined cell a in the auto processing job
@@ -353,5 +352,5 @@ pub struct AP {
     /// Refined cell gamma in the auto processing job
     pub refined_cell_gamma: Option<f32>,
     /// An opaque unique identifier for the auto processing scaling
-    pub auto_proc_scaling_id: u32,
+    pub auto_proc_scaling_id: Option<u32>,
 }
