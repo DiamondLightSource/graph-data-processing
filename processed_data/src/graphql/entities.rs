@@ -234,7 +234,7 @@ impl DataProcessing {
 
 /// Datasets subgraph extension
 #[derive(SimpleObject)]
-#[graphql(name = "Datasets", complex)]
+#[graphql(name = "DataCollection", complex)]
 pub struct DataCollection {
     /// An opaque unique identifier for the data collection
     pub id: u32,

@@ -213,9 +213,9 @@ impl Loader<u32> for AutoProcessingDataLoader {
     type Value = Vec<AutoProcessing>;
     type Error = async_graphql::Error;
 
-    #[instrument(name = "load_auto_proc_integration", skip(self))]
+    #[instrument(name = "load_auto_processing", skip(self))]
     async fn load(&self, keys: &[u32]) -> Result<HashMap<u32, Self::Value>, Self::Error> {
-        let span = tracing::info_span!(parent: &self.parent_span, "load_auto_proc_integration");
+        let span = tracing::info_span!(parent: &self.parent_span, "load_auto_processing");
         let _span = span.enter();
         let mut results = HashMap::new();
         let keys_vec: Vec<u32> = keys.to_vec();
@@ -396,10 +396,8 @@ impl AutoProcessing {
     ) -> async_graphql::Result<Option<AutoProcScalingStatics>> {
         let loader = ctx.data_unchecked::<DataLoader<AutoProcScalingDataLoader>>();
         match self.auto_proc_id {
-            Some(id) => loader
-                .load_one((id,  StatisticsType::Overall))
-                .await,
-            None => Ok(None)
+            Some(id) => loader.load_one((id, StatisticsType::Overall)).await,
+            None => Ok(None),
         }
     }
 
@@ -410,12 +408,9 @@ impl AutoProcessing {
     ) -> async_graphql::Result<Option<AutoProcScalingStatics>> {
         let loader = ctx.data_unchecked::<DataLoader<AutoProcScalingDataLoader>>();
         match self.auto_proc_id {
-            Some(id) => loader
-                .load_one((id,  StatisticsType::InnerShell))
-                .await,
-            None => Ok(None)
+            Some(id) => loader.load_one((id, StatisticsType::InnerShell)).await,
+            None => Ok(None),
         }
-
     }
 
     /// Fetches the outershell scaling statistics type
@@ -425,10 +420,8 @@ impl AutoProcessing {
     ) -> async_graphql::Result<Option<AutoProcScalingStatics>> {
         let loader = ctx.data_unchecked::<DataLoader<AutoProcScalingDataLoader>>();
         match self.auto_proc_id {
-            Some(id) => loader
-                .load_one((id, StatisticsType::OuterShell))
-                .await,
-            None => Ok(None)
+            Some(id) => loader.load_one((id, StatisticsType::OuterShell)).await,
+            None => Ok(None),
         }
     }
 }
