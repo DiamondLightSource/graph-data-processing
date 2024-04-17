@@ -1,8 +1,7 @@
 use async_graphql::{Enum, SimpleObject};
 use models::{
-    auto_proc, auto_proc_integration, auto_proc_program, auto_proc_scaling,
-    auto_proc_scaling_statistics, data_collection_file_attachment, processing_job,
-    processing_job_parameter, sea_orm_active_enums::ScalingStatisticsType,
+    auto_proc_scaling, auto_proc_scaling_statistics, data_collection_file_attachment,
+    processing_job, processing_job_parameter, sea_orm_active_enums::ScalingStatisticsType,
 };
 
 /// Represents processed image file stored in s3 bucket
@@ -68,102 +67,6 @@ impl From<processing_job_parameter::Model> for ProcessingJobParameter {
             processing_job_parameter_id: value.processing_job_parameter_id,
             parameter_key: value.parameter_key,
             parameter_value: value.parameter_value,
-        }
-    }
-}
-
-/// Represents an auto processed job
-#[derive(Clone, Debug, PartialEq, SimpleObject)]
-#[graphql(name = "AutoProc", unresolvable)]
-pub struct AutoProc {
-    /// An opaque unique identifier for the auto processing
-    pub auto_proc_id: u32,
-    /// An opaque unique identifier for the auto processing program
-    pub auto_proc_program_id: Option<u32>,
-    /// Space group of the processing job
-    pub space_group: Option<String>,
-    /// Refined cell a in the auto processing job
-    pub refined_cell_a: Option<f32>,
-    /// Refined cell b in the auto processing job
-    pub refined_cell_b: Option<f32>,
-    /// Refined cell c in the auto processing job
-    pub refined_cell_c: Option<f32>,
-    /// Refined cell alpha in the auto processing job
-    pub refined_cell_alpha: Option<f32>,
-    /// Refined cell beta in the auto processing job
-    pub refined_cell_beta: Option<f32>,
-    /// Refined cell gamma in the auto processing job
-    pub refined_cell_gamma: Option<f32>,
-}
-
-impl From<auto_proc::Model> for AutoProc {
-    fn from(value: auto_proc::Model) -> Self {
-        Self {
-            auto_proc_id: value.auto_proc_id,
-            auto_proc_program_id: value.auto_proc_program_id,
-            space_group: value.space_group,
-            refined_cell_a: value.refined_cell_a,
-            refined_cell_b: value.refined_cell_b,
-            refined_cell_c: value.refined_cell_c,
-            refined_cell_alpha: value.refined_cell_alpha,
-            refined_cell_beta: value.refined_cell_beta,
-            refined_cell_gamma: value.refined_cell_gamma,
-        }
-    }
-}
-
-/// Represents an auto processed program
-#[derive(Clone, Debug, PartialEq, SimpleObject)]
-#[graphql(name = "AutoProcProgram", unresolvable)]
-pub struct AutoProcProgram {
-    /// An opaque unique identifier for the auto processing program
-    pub auto_proc_program_id: u32,
-    /// Name of the processing programs
-    pub processing_programs: Option<String>,
-    /// Processing program status
-    pub processing_status: Option<i8>,
-    /// Processing program message
-    pub processing_message: Option<String>,
-    /// An opaque unique identifier for the  processing processing job
-    pub processing_job_id: Option<u32>,
-}
-
-impl From<auto_proc_program::Model> for AutoProcProgram {
-    fn from(value: auto_proc_program::Model) -> Self {
-        Self {
-            auto_proc_program_id: value.auto_proc_program_id,
-            processing_programs: value.processing_programs,
-            processing_status: value.processing_status,
-            processing_message: value.processing_message,
-            processing_job_id: value.processing_job_id,
-        }
-    }
-}
-
-/// Represents an auto processing integration
-#[derive(Clone, Debug, PartialEq, SimpleObject)]
-#[graphql(name = "AutoProcIntegration", unresolvable)]
-pub struct AutoProcIntegration {
-    /// An opaque unique identifier for the auto processing integration
-    pub auto_proc_integration_id: u32,
-    /// An opaque unique identifier for the data collection
-    pub data_collection_id: u32,
-    /// An opaque unique identifier for the auto processing program
-    pub auto_proc_program_id: Option<u32>,
-    /// Refined X position of the beam
-    pub refined_x_beam: Option<f32>,
-    /// Refined Y position of the beam
-    pub refined_y_beam: Option<f32>,
-}
-
-impl From<auto_proc_integration::Model> for AutoProcIntegration {
-    fn from(value: auto_proc_integration::Model) -> Self {
-        Self {
-            auto_proc_integration_id: value.auto_proc_integration_id,
-            data_collection_id: value.data_collection_id,
-            auto_proc_program_id: value.auto_proc_program_id,
-            refined_x_beam: value.refined_x_beam,
-            refined_y_beam: value.refined_y_beam,
         }
     }
 }
@@ -287,36 +190,10 @@ pub struct ProcessJob {
     pub parameters: Option<ProcessingJobParameter>,
 }
 
-/// Combines auto proc integration and its programs
-#[derive(Debug, Clone, SimpleObject)]
-#[graphql(
-    name = "AutoProcessing",
-    unresolvable = "autoProcIntegrationId",
-    complex
-)]
-pub struct AutoProcessing {
-    #[graphql(flatten)]
-    /// Represents auto proc integration table
-    pub auto_proc_integration: AutoProcIntegration,
-    /// Represents auto proc program table
-    pub auto_proc_program: Option<AutoProcProgram>,
-}
-
-/// Combines autoproc and its scaling and statistics
-#[derive(Debug, Clone, SimpleObject)]
-#[graphql(name = "AutoProcess", unresolvable = "autoProcId", complex)]
-pub struct AutoProcess {
-    #[graphql(flatten)]
-    /// Represents autoproc table
-    pub auto_proc: AutoProc,
-    /// Represents auto proc scaling table
-    pub auto_proc_scaling: Option<AutoProcScaling>,
-}
-
 /// Combines autoproc integration, autoproc program, autoproc and autoproc scaling
 #[derive(Debug, Clone, SimpleObject)]
-#[graphql(name = "AP", unresolvable = "autoProcIntegrationId")]
-pub struct AP {
+#[graphql(name = "AutoProcessing", unresolvable = "autoProcIntegrationId")]
+pub struct AutoProcessing {
     /// An opaque unique identifier for the auto processing integration
     pub auto_proc_integration_id: u32,
     /// An opaque unique identifier for the data collection

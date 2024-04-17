@@ -7,8 +7,8 @@ use async_graphql::{
 };
 use aws_sdk_s3::presigning::PresigningConfig;
 use entities::{
-    AutoProc, AutoProcScaling, AutoProcScalingStatics, AutoProcess, AutoProcessing, DataCollection,
-    DataProcessing, ProcessJob, ProcessingJob, ProcessingJobParameter, StatisticsType, AP,
+    AutoProcScalingStatics, AutoProcessing, DataCollection, DataProcessing, ProcessJob,
+    ProcessingJob, ProcessingJobParameter, StatisticsType,
 };
 use models::{
     auto_proc, auto_proc_integration, auto_proc_program, auto_proc_scaling,
@@ -44,10 +44,6 @@ impl AddDataLoadersExt for async_graphql::Request {
             tokio::spawn,
         ))
         .data(DataLoader::new(
-            AutoProcIntegrationDataLoader::new(database.clone()),
-            tokio::spawn,
-        ))
-        .data(DataLoader::new(
             AutoProcessingDataLoader::new(database.clone()),
             tokio::spawn,
         ))
@@ -79,12 +75,6 @@ pub struct ProcessJobDataLoader {
     database: DatabaseConnection,
     parent_span: Span,
 }
-/// DataLoader for AutoProcIntegration
-#[allow(clippy::missing_docs_in_private_items)]
-pub struct AutoProcIntegrationDataLoader {
-    database: DatabaseConnection,
-    parent_span: Span,
-}
 /// DataLoader for AutoProcessing
 #[allow(clippy::missing_docs_in_private_items)]
 pub struct AutoProcessingDataLoader {
@@ -110,16 +100,6 @@ impl ProcessJobDataLoader {
 
 #[allow(clippy::missing_docs_in_private_items)]
 impl ProcessedDataLoader {
-    fn new(database: DatabaseConnection) -> Self {
-        Self {
-            database,
-            parent_span: Span::current(),
-        }
-    }
-}
-
-#[allow(clippy::missing_docs_in_private_items)]
-impl AutoProcIntegrationDataLoader {
     fn new(database: DatabaseConnection) -> Self {
         Self {
             database,
@@ -206,8 +186,8 @@ impl Loader<u32> for ProcessJobDataLoader {
     }
 }
 
-impl Loader<u32> for AutoProcIntegrationDataLoader {
-    type Value = Vec<AP>;
+impl Loader<u32> for AutoProcessingDataLoader {
+    type Value = Vec<AutoProcessing>;
     type Error = async_graphql::Error;
 
     #[instrument(name = "load_auto_proc_integration", skip(self))]
@@ -265,7 +245,7 @@ impl Loader<u32> for AutoProcIntegrationDataLoader {
             ))
             .await?
             .into_iter()
-            .map(|record| AP {
+            .map(|record| AutoProcessing {
                 auto_proc_integration_id: record.try_get("", "autoProcIntegrationId").unwrap(),
                 data_collection_id: record.try_get("", "dataCollectionId").unwrap(),
                 auto_proc_program_id: record.try_get("", "autoProcProgramId").unwrap_or(None),
@@ -293,37 +273,6 @@ impl Loader<u32> for AutoProcIntegrationDataLoader {
                 .entry(data_collection_id)
                 .or_insert_with(Vec::new)
                 .push(record)
-        }
-
-        Ok(results)
-    }
-}
-
-impl Loader<u32> for AutoProcessingDataLoader {
-    type Value = AutoProcess;
-    type Error = async_graphql::Error;
-
-    #[instrument(name = "load_process", skip(self))]
-    async fn load(&self, keys: &[u32]) -> Result<HashMap<u32, Self::Value>, Self::Error> {
-        let span = tracing::info_span!(parent: &self.parent_span, "load_process");
-        let _span = span.enter();
-        let mut results = HashMap::new();
-        let keys_vec: Vec<u32> = keys.to_vec();
-        let records = auto_proc::Entity::find()
-            .filter(auto_proc::Column::AutoProcProgramId.is_in(keys_vec))
-            .find_also_related(auto_proc_scaling::Entity)
-            .all(&self.database)
-            .await?
-            .into_iter()
-            .map(|(auto_proc, scaling)| AutoProcess {
-                auto_proc: AutoProc::from(auto_proc),
-                auto_proc_scaling: scaling.map(AutoProcScaling::from),
-            })
-            .collect::<Vec<_>>();
-
-        for record in records {
-            let program_id = record.auto_proc.auto_proc_program_id.unwrap();
-            results.insert(program_id, record);
         }
 
         Ok(results)
@@ -406,11 +355,11 @@ impl DataCollection {
     }
 
     /// Fetches all the automatic process
-    async fn auto_proc_integration(
+    async fn auto_processing(
         &self,
         ctx: &Context<'_>,
-    ) -> async_graphql::Result<Option<Vec<AP>>, async_graphql::Error> {
-        let loader = ctx.data_unchecked::<DataLoader<AutoProcIntegrationDataLoader>>();
+    ) -> async_graphql::Result<Option<Vec<AutoProcessing>>, async_graphql::Error> {
+        let loader = ctx.data_unchecked::<DataLoader<AutoProcessingDataLoader>>();
         loader.load_one(self.id).await
     }
 }
@@ -436,27 +385,14 @@ impl DataProcessing {
 
 #[ComplexObject]
 impl AutoProcessing {
-    /// Fetched the automatic process
-    async fn auto_proc(&self, ctx: &Context<'_>) -> async_graphql::Result<Option<AutoProcess>> {
-        let loader = ctx.data_unchecked::<DataLoader<AutoProcessingDataLoader>>();
-        let id = self.auto_proc_integration.auto_proc_program_id;
-        loader.load_one(id.unwrap()).await
-    }
-}
-
-#[ComplexObject]
-impl AutoProcess {
     /// Fetches the overall scaling statistics type
     async fn overall(
         &self,
         ctx: &Context<'_>,
     ) -> async_graphql::Result<Option<AutoProcScalingStatics>> {
         let loader = ctx.data_unchecked::<DataLoader<AutoProcScalingDataLoader>>();
-        let id = <Option<entities::AutoProcScaling> as Clone>::clone(&self.auto_proc_scaling)
-            .unwrap()
-            .auto_proc_id;
         loader
-            .load_one((id.unwrap(), StatisticsType::Overall))
+            .load_one((self.auto_proc_id.unwrap(), StatisticsType::Overall))
             .await
     }
 
@@ -466,11 +402,8 @@ impl AutoProcess {
         ctx: &Context<'_>,
     ) -> async_graphql::Result<Option<AutoProcScalingStatics>> {
         let loader = ctx.data_unchecked::<DataLoader<AutoProcScalingDataLoader>>();
-        let id = <Option<entities::AutoProcScaling> as Clone>::clone(&self.auto_proc_scaling)
-            .unwrap()
-            .auto_proc_id;
         loader
-            .load_one((id.unwrap(), StatisticsType::InnerShell))
+            .load_one((self.auto_proc_id.unwrap(), StatisticsType::InnerShell))
             .await
     }
 
@@ -480,11 +413,8 @@ impl AutoProcess {
         ctx: &Context<'_>,
     ) -> async_graphql::Result<Option<AutoProcScalingStatics>> {
         let loader = ctx.data_unchecked::<DataLoader<AutoProcScalingDataLoader>>();
-        let id = <Option<entities::AutoProcScaling> as Clone>::clone(&self.auto_proc_scaling)
-            .unwrap()
-            .auto_proc_id;
         loader
-            .load_one((id.unwrap(), StatisticsType::OuterShell))
+            .load_one((self.auto_proc_id.unwrap(), StatisticsType::OuterShell))
             .await
     }
 }
