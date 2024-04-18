@@ -1,0 +1,13 @@
+apiVersion: v1
+data:
+  setup.sh: |+
+    #!/bin/bash
+    awslocal s3api create-bucket \
+        --bucket data-collection \
+        --create-bucket-configuration LocationConstraint=eu-west-1 \
+        --region eu-west-1
+
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  name: localstack-setup

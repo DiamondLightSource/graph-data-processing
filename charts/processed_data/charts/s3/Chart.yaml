@@ -1,0 +1,6 @@
+apiVersion: v2
+name: s3-localstack
+description: A localstack s3 bucket instance
+type: application
+
+version: 0.1.0

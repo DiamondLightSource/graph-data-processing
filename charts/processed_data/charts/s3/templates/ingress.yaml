@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+  name: s3-localstack-ingress
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - data-gateway.diamond.ac.uk
+  rules:
+  - host: data-gateway.diamond.ac.uk
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "s3-localstack.fullname" . }}
+            port:
+              number: {{ .Values.service.port }}

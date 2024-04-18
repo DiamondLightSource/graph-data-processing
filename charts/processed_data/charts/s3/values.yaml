@@ -1,0 +1,37 @@
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: docker.io/localstack/localstack:latest
+  pullPolicy: Always
+  tag: ""
+
+imagePullSecrets: []
+
+logLevel: Warn
+otelCollectorUrl: ""
+
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  port: 4566
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+securityContext: {}
+
+resources: {}
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
