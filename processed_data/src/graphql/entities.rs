@@ -281,12 +281,7 @@ impl AutoProcFileAttachment {
                 .to_string(),
         );
         key.push(<Option<String> as Clone>::clone(&self.file_name).unwrap());
-        let key_str = key.to_string_lossy().to_string();
-        // Remove leading "/" if present
-        match key_str.strip_prefix('/') {
-            Some(stripped_key) => stripped_key.to_string(),
-            None => key_str,
-        }
+        key.to_string_lossy().to_string()
     }
 }
 
