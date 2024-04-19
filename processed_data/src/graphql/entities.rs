@@ -1,7 +1,7 @@
 use async_graphql::{Enum, SimpleObject};
 use models::{
-    auto_proc_scaling, auto_proc_scaling_statistics, data_collection_file_attachment,
-    sea_orm_active_enums::ScalingStatisticsType,
+    auto_proc_scaling, auto_proc_scaling_statistics, auto_proc_program_attachment,
+    sea_orm_active_enums::{ScalingStatisticsType, FileType},
 };
 use sea_orm::QueryResult;
 
@@ -76,25 +76,72 @@ impl From<QueryResult> for AutoProcessing {
     }
 }
 
-/// Represents processed image file stored in s3 bucket
-#[derive(Clone, Debug, PartialEq, SimpleObject)]
-#[graphql(name = "DataProcessing", unresolvable, complex)]
-pub struct DataProcessing {
-    /// An opaque unique identifier for the collected file attachment
-    pub id: u32,
-    /// Full path where the processed image is stored
-    #[graphql(skip)]
-    pub file_full_path: String,
+#[derive(Enum, Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum AttachmentFileType {
+    Log, 
+    Result, 
+    Graph, 
+    Debug, 
+    Input,
 }
 
-impl From<data_collection_file_attachment::Model> for DataProcessing {
-    fn from(value: data_collection_file_attachment::Model) -> Self {
-        Self {
-            id: value.data_collection_file_attachment_id,
-            file_full_path: value.file_full_path,
+impl ToString for AttachmentFileType {
+    fn to_string(&self) -> String {
+        match self {
+            AttachmentFileType::Log => "Log".to_string(),
+            AttachmentFileType::Result => "Result".to_string(),
+            AttachmentFileType::Graph => "Graph".to_string(),
+            AttachmentFileType::Debug => "Debug".to_string(),
+            AttachmentFileType::Input => "Input".to_string(),
         }
     }
 }
+
+impl From<Option<FileType>> for AttachmentFileType {
+    fn from(value: Option<FileType>) -> Self {
+        match value {
+            Some(FileType::Log) => AttachmentFileType::Log,
+            Some(FileType::Result) => AttachmentFileType::Result,
+            Some(FileType::Graph) => AttachmentFileType::Graph,
+            Some(FileType::Debug) => AttachmentFileType::Debug,
+            Some(FileType::Input) => AttachmentFileType::Input,
+            None => None.into(),
+        }
+    }
+}
+
+/// Represents processed image file stored in s3 bucket
+#[derive(Clone, Debug, PartialEq, SimpleObject)]
+#[graphql(name = "AutoProcFileAttachment", unresolvable)]
+pub struct AutoProcFileAttachment {
+    /// An opaque unique identifier for the autoproc file attachment
+    pub id: u32,
+    /// An opaque unique identifier for auto proc program
+    #[graphql(skip)]
+    pub auto_proc_program_id: u32,
+    /// Type of file attachment
+    pub file_type: Option<AttachmentFileType>,
+    /// Full name of the file
+    #[graphql(skip)]
+    pub file_name: Option<String>,
+    /// Path of the file stored in the file system
+    #[graphql(skip)]
+    pub file_path: Option<String>,
+    
+}
+
+impl From<auto_proc_program_attachment::Model> for AutoProcFileAttachment {
+    fn from(value: auto_proc_program_attachment::Model) -> Self {
+        Self {
+            id: value.auto_proc_program_attachment_id,
+            auto_proc_program_id: value.auto_proc_program_id, 
+            file_type: Some(AttachmentFileType::from(value.file_type)),
+            file_name: value.file_name, 
+            file_path: value.file_path,
+        }
+    }
+}
+
 
 /// Represents a processing job
 #[derive(Clone, Debug, PartialEq, SimpleObject)]
@@ -169,6 +216,16 @@ impl ToString for StatisticsType {
     }
 }
 
+impl From<ScalingStatisticsType> for StatisticsType {
+    fn from(value: ScalingStatisticsType) -> Self {
+        match value {
+            ScalingStatisticsType::Overall => StatisticsType::Overall,
+            ScalingStatisticsType::InnerShell => StatisticsType::InnerShell,
+            ScalingStatisticsType::OuterShell => StatisticsType::OuterShell,
+        }
+    }
+}
+
 /// Represents auto processing scaling statics
 #[derive(Clone, Debug, PartialEq, SimpleObject)]
 #[graphql(name = "AutoProcScalingStatics", unresolvable)]
@@ -190,16 +247,6 @@ pub struct AutoProcScalingStatics {
     pub anomalous_multiplicity: Option<f32>,
     pub cc_half: Option<f32>,
     pub cc_anomalous: Option<f32>,
-}
-
-impl From<ScalingStatisticsType> for StatisticsType {
-    fn from(value: ScalingStatisticsType) -> Self {
-        match value {
-            ScalingStatisticsType::Overall => StatisticsType::Overall,
-            ScalingStatisticsType::InnerShell => StatisticsType::InnerShell,
-            ScalingStatisticsType::OuterShell => StatisticsType::OuterShell,
-        }
-    }
 }
 
 impl From<auto_proc_scaling_statistics::Model> for AutoProcScalingStatics {
@@ -225,12 +272,12 @@ impl From<auto_proc_scaling_statistics::Model> for AutoProcScalingStatics {
     }
 }
 
-impl DataProcessing {
-    /// S3 bucket object key
-    pub fn object_key(&self) -> String {
-        self.file_full_path.to_string()
-    }
-}
+// impl DataProcessing {
+//     /// S3 bucket object key
+//     pub fn object_key(&self) -> String {
+//         self.file_full_path.to_string()
+//     }
+// }
 
 /// Datasets subgraph extension
 #[derive(SimpleObject)]

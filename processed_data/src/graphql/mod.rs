@@ -7,12 +7,12 @@ use async_graphql::{
 };
 use aws_sdk_s3::presigning::PresigningConfig;
 use entities::{
-    AutoProcScalingStatics, AutoProcessing, DataCollection, DataProcessing, ProcessingJob,
-    StatisticsType,
+    AutoProcScalingStatics, AutoProcessing, DataCollection, ProcessingJob,
+    StatisticsType, AutoProcFileAttachment
 };
 use models::{
     auto_proc, auto_proc_integration, auto_proc_program, auto_proc_scaling,
-    auto_proc_scaling_statistics, data_collection_file_attachment, processing_job,
+    auto_proc_scaling_statistics, processing_job, auto_proc_program_attachment,
     processing_job_parameter,
 };
 use sea_orm::{
@@ -36,7 +36,7 @@ pub trait AddDataLoadersExt {
 impl AddDataLoadersExt for async_graphql::Request {
     fn add_data_loaders(self, database: DatabaseConnection) -> Self {
         self.data(DataLoader::new(
-            ProcessedDataLoader::new(database.clone()),
+            FileAttachmentDataLoader::new(database.clone()),
             tokio::spawn,
         ))
         .data(DataLoader::new(
@@ -65,7 +65,7 @@ pub fn root_schema_builder() -> SchemaBuilder<Query, EmptyMutation, EmptySubscri
 pub struct Query;
 /// DataLoader for Processed Data
 #[allow(clippy::missing_docs_in_private_items)]
-pub struct ProcessedDataLoader {
+pub struct FileAttachmentDataLoader {
     database: DatabaseConnection,
     parent_span: Span,
 }
@@ -99,7 +99,7 @@ impl ProcessingJobDataLoader {
 }
 
 #[allow(clippy::missing_docs_in_private_items)]
-impl ProcessedDataLoader {
+impl FileAttachmentDataLoader {
     fn new(database: DatabaseConnection) -> Self {
         Self {
             database,
@@ -128,25 +128,25 @@ impl AutoProcScalingDataLoader {
     }
 }
 
-impl Loader<u32> for ProcessedDataLoader {
-    type Value = DataProcessing;
+impl Loader<u32> for FileAttachmentDataLoader {
+    type Value = Vec<AutoProcFileAttachment>;
     type Error = async_graphql::Error;
 
     async fn load(&self, keys: &[u32]) -> Result<HashMap<u32, Self::Value>, Self::Error> {
-        let span = tracing::info_span!(parent: &self.parent_span, "load_processed_data");
+        let span = tracing::info_span!(parent: &self.parent_span, "load_auto_proc_file_attachment");
         let _span = span.enter();
         let mut results = HashMap::new();
         let keys_vec: Vec<u32> = keys.to_vec();
-        let records = data_collection_file_attachment::Entity::find()
-            .filter(data_collection_file_attachment::Column::DataCollectionId.is_in(keys_vec))
+        let records = auto_proc_program_attachment::Entity::find()
+            .filter(auto_proc_program_attachment::Column::AutoProcProgramId.is_in(keys_vec))
             .all(&self.database)
             .await?;
 
         for record in records {
-            let data_collection_id = record.data_collection_id;
-            let data = DataProcessing::from(record);
+            let id = record.auto_proc_program_id;
+            let data = AutoProcFileAttachment::from(record);
 
-            results.insert(data_collection_id, data);
+            results.entry(id).or_insert(Vec::new()).push(data);
         }
 
         Ok(results)
@@ -340,15 +340,6 @@ impl Loader<(u32, StatisticsType)> for AutoProcScalingDataLoader {
 
 #[ComplexObject]
 impl DataCollection {
-    /// Fetched all the processed data from data collection during a session
-    async fn processed_data(
-        &self,
-        ctx: &Context<'_>,
-    ) -> Result<Option<DataProcessing>, async_graphql::Error> {
-        let loader = ctx.data_unchecked::<DataLoader<ProcessedDataLoader>>();
-        loader.load_one(self.id).await
-    }
-
     /// Fetched all the processing jobs
     async fn processing_jobs(
         &self,
@@ -368,24 +359,24 @@ impl DataCollection {
     }
 }
 
-#[ComplexObject]
-impl DataProcessing {
-    /// Gives downloadable link for the processed image in the s3 bucket
-    async fn download_url(&self, ctx: &Context<'_>) -> async_graphql::Result<String> {
-        let s3_client = ctx.data::<aws_sdk_s3::Client>()?;
-        let bucket = ctx.data::<S3Bucket>()?;
-        let object_uri = s3_client
-            .get_object()
-            .bucket(bucket.clone())
-            .key(self.object_key())
-            .presigned(PresigningConfig::expires_in(Duration::from_secs(10 * 60))?)
-            .await?
-            .uri()
-            .clone();
-        let object_url = Url::parse(&object_uri.to_string())?;
-        Ok(object_url.to_string())
-    }
-}
+// #[ComplexObject]
+// impl AutoProcFileAttachment {
+//     /// Gives downloadable link for the processed image in the s3 bucket
+//     async fn file_url(&self, ctx: &Context<'_>) -> async_graphql::Result<String> {
+//         let s3_client = ctx.data::<aws_sdk_s3::Client>()?;
+//         let bucket = ctx.data::<S3Bucket>()?;
+//         let object_uri = s3_client
+//             .get_object()
+//             .bucket(bucket.clone())
+//             .key(self.object_key())
+//             .presigned(PresigningConfig::expires_in(Duration::from_secs(10 * 60))?)
+//             .await?
+//             .uri()
+//             .clone();
+//         let object_url = Url::parse(&object_uri.to_string())?;
+//         Ok(object_url.to_string())
+//     }
+// }
 
 #[ComplexObject]
 impl AutoProcessing {
@@ -424,6 +415,18 @@ impl AutoProcessing {
             None => Ok(None),
         }
     }
+
+    /// Fetches all the file attachments 
+    async fn file_attachments(
+        &self, 
+        ctx: &Context<'_>,
+    ) -> Result<Option<Vec<AutoProcFileAttachment>>, async_graphql::Error> {
+        let loader = ctx.data_unchecked::<DataLoader<FileAttachmentDataLoader>>();
+        match self.auto_proc_program_id {
+            Some(id) => loader.load_one(id).await,
+            None => Ok(None),
+        }
+    }
 }
 
 #[Object]
@@ -432,5 +435,14 @@ impl Query {
     #[graphql(entity)]
     async fn router_data_collection(&self, id: u32) -> DataCollection {
         DataCollection { id }
+    }
+
+    async fn processed_data(
+        &self,
+        ctx: &Context<'_>,
+        id: u32,
+    ) -> Result<Option<Vec<AutoProcFileAttachment>>, async_graphql::Error> {
+        let loader = ctx.data_unchecked::<DataLoader<FileAttachmentDataLoader>>();
+        loader.load_one(id).await
     }
 }

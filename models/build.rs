@@ -17,11 +17,13 @@ struct Table<'a> {
 
 const TABLES_SPECS: &[&Table] = &[
     &Table {
-        name: "DataCollectionFileAttachment",
+        name: "AutoProcProgramAttachment",
         columns: &[
-            "dataCollectionFileAttachmentId",
-            "dataCollectionId",
-            "fileFullPath",
+            "autoProcProgramAttachmentId",
+            "autoProcProgramId",
+            "fileType",
+            "fileName",
+            "filePath",
         ],
     },
     &Table {
