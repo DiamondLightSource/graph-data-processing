@@ -8,6 +8,8 @@ services:
     volumes:
       - ..:/workspace:cached,z
     command: sleep infinity
+    ports:
+      - "8000:80"
     environment:
       DATABASE_URL: mysql://root:rootpassword@ispyb/ispyb_build
       LOG_LEVEL: DEBUG

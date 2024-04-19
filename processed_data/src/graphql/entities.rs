@@ -1,7 +1,7 @@
 use async_graphql::{Enum, SimpleObject};
 use models::{
-    auto_proc_scaling, auto_proc_scaling_statistics, auto_proc_program_attachment,
-    sea_orm_active_enums::{ScalingStatisticsType, FileType},
+    auto_proc_program_attachment, auto_proc_scaling, auto_proc_scaling_statistics,
+    sea_orm_active_enums::{FileType, ScalingStatisticsType},
 };
 use sea_orm::QueryResult;
 
@@ -76,12 +76,14 @@ impl From<QueryResult> for AutoProcessing {
     }
 }
 
+/// Type of file attachment for auto processing
 #[derive(Enum, Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[allow(clippy::missing_docs_in_private_items)]
 pub enum AttachmentFileType {
-    Log, 
-    Result, 
-    Graph, 
-    Debug, 
+    Log,
+    Result,
+    Graph,
+    Debug,
     Input,
 }
 
@@ -112,7 +114,7 @@ impl From<Option<FileType>> for AttachmentFileType {
 
 /// Represents processed image file stored in s3 bucket
 #[derive(Clone, Debug, PartialEq, SimpleObject)]
-#[graphql(name = "AutoProcFileAttachment", unresolvable)]
+#[graphql(name = "AutoProcFileAttachment", unresolvable, complex)]
 pub struct AutoProcFileAttachment {
     /// An opaque unique identifier for the autoproc file attachment
     pub id: u32,
@@ -122,26 +124,24 @@ pub struct AutoProcFileAttachment {
     /// Type of file attachment
     pub file_type: Option<AttachmentFileType>,
     /// Full name of the file
-    #[graphql(skip)]
+    // #[graphql(skip)]
     pub file_name: Option<String>,
     /// Path of the file stored in the file system
-    #[graphql(skip)]
+    // #[graphql(skip)]
     pub file_path: Option<String>,
-    
 }
 
 impl From<auto_proc_program_attachment::Model> for AutoProcFileAttachment {
     fn from(value: auto_proc_program_attachment::Model) -> Self {
         Self {
             id: value.auto_proc_program_attachment_id,
-            auto_proc_program_id: value.auto_proc_program_id, 
+            auto_proc_program_id: value.auto_proc_program_id,
             file_type: Some(AttachmentFileType::from(value.file_type)),
-            file_name: value.file_name, 
+            file_name: value.file_name,
             file_path: value.file_path,
         }
     }
 }
-
 
 /// Represents a processing job
 #[derive(Clone, Debug, PartialEq, SimpleObject)]
@@ -272,12 +272,18 @@ impl From<auto_proc_scaling_statistics::Model> for AutoProcScalingStatics {
     }
 }
 
-// impl DataProcessing {
-//     /// S3 bucket object key
-//     pub fn object_key(&self) -> String {
-//         self.file_full_path.to_string()
-//     }
-// }
+impl AutoProcFileAttachment {
+    /// S3 bucket object key
+    pub fn object_key(&self) -> String {
+        let mut key = std::path::PathBuf::from(
+            <Option<String> as Clone>::clone(&self.file_path)
+                .unwrap()
+                .to_string(),
+        );
+        key.push(<Option<String> as Clone>::clone(&self.file_name).unwrap());
+        key.to_string_lossy().to_string()
+    }
+}
 
 /// Datasets subgraph extension
 #[derive(SimpleObject)]

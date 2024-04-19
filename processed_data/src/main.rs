@@ -242,7 +242,11 @@ async fn main() {
         Cli::Serve(args) => {
             setup_telemetry(args.log_level, args.otel_collector_url).unwrap();
             let database = setup_database(args.database_url).await.unwrap();
-            let schema = root_schema_builder().finish();
+            let s3_client = aws_sdk_s3::Client::from_s3_client_args(args.s3_client);
+            let schema = root_schema_builder()
+                .data(s3_client)
+                .data(args.s3_bucket)
+                .finish();
             let router = setup_router(schema, database);
             serve(router, args.port).await.unwrap();
         }

@@ -7,13 +7,12 @@ use async_graphql::{
 };
 use aws_sdk_s3::presigning::PresigningConfig;
 use entities::{
-    AutoProcScalingStatics, AutoProcessing, DataCollection, ProcessingJob,
-    StatisticsType, AutoProcFileAttachment
+    AutoProcFileAttachment, AutoProcScalingStatics, AutoProcessing, DataCollection, ProcessingJob,
+    StatisticsType,
 };
 use models::{
-    auto_proc, auto_proc_integration, auto_proc_program, auto_proc_scaling,
-    auto_proc_scaling_statistics, processing_job, auto_proc_program_attachment,
-    processing_job_parameter,
+    auto_proc, auto_proc_integration, auto_proc_program, auto_proc_program_attachment,
+    auto_proc_scaling, auto_proc_scaling_statistics, processing_job, processing_job_parameter,
 };
 use sea_orm::{
     ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, QueryFilter, Statement,
@@ -359,24 +358,24 @@ impl DataCollection {
     }
 }
 
-// #[ComplexObject]
-// impl AutoProcFileAttachment {
-//     /// Gives downloadable link for the processed image in the s3 bucket
-//     async fn file_url(&self, ctx: &Context<'_>) -> async_graphql::Result<String> {
-//         let s3_client = ctx.data::<aws_sdk_s3::Client>()?;
-//         let bucket = ctx.data::<S3Bucket>()?;
-//         let object_uri = s3_client
-//             .get_object()
-//             .bucket(bucket.clone())
-//             .key(self.object_key())
-//             .presigned(PresigningConfig::expires_in(Duration::from_secs(10 * 60))?)
-//             .await?
-//             .uri()
-//             .clone();
-//         let object_url = Url::parse(&object_uri.to_string())?;
-//         Ok(object_url.to_string())
-//     }
-// }
+#[ComplexObject]
+impl AutoProcFileAttachment {
+    /// Gives downloadable link for the processed image in the s3 bucket
+    async fn file_url(&self, ctx: &Context<'_>) -> async_graphql::Result<String> {
+        let s3_client = ctx.data::<aws_sdk_s3::Client>()?;
+        let bucket = ctx.data::<S3Bucket>()?;
+        let object_uri = s3_client
+            .get_object()
+            .bucket(bucket.clone())
+            .key(self.object_key())
+            .presigned(PresigningConfig::expires_in(Duration::from_secs(10 * 60))?)
+            .await?
+            .uri()
+            .clone();
+        let object_url = Url::parse(&object_uri.to_string())?;
+        Ok(object_url.to_string())
+    }
+}
 
 #[ComplexObject]
 impl AutoProcessing {
@@ -416,9 +415,9 @@ impl AutoProcessing {
         }
     }
 
-    /// Fetches all the file attachments 
+    /// Fetches all the file attachments
     async fn file_attachments(
-        &self, 
+        &self,
         ctx: &Context<'_>,
     ) -> Result<Option<Vec<AutoProcFileAttachment>>, async_graphql::Error> {
         let loader = ctx.data_unchecked::<DataLoader<FileAttachmentDataLoader>>();
@@ -435,14 +434,5 @@ impl Query {
     #[graphql(entity)]
     async fn router_data_collection(&self, id: u32) -> DataCollection {
         DataCollection { id }
-    }
-
-    async fn processed_data(
-        &self,
-        ctx: &Context<'_>,
-        id: u32,
-    ) -> Result<Option<Vec<AutoProcFileAttachment>>, async_graphql::Error> {
-        let loader = ctx.data_unchecked::<DataLoader<FileAttachmentDataLoader>>();
-        loader.load_one(id).await
     }
 }
