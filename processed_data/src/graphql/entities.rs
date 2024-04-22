@@ -117,6 +117,7 @@ impl From<Option<FileType>> for AttachmentFileType {
 #[graphql(name = "AutoProcFileAttachment", unresolvable, complex)]
 pub struct AutoProcFileAttachment {
     /// An opaque unique identifier for the autoproc file attachment
+    #[graphql(skip)]
     pub id: u32,
     /// An opaque unique identifier for auto proc program
     #[graphql(skip)]
@@ -130,7 +131,6 @@ pub struct AutoProcFileAttachment {
     #[graphql(skip)]
     pub file_path: Option<String>,
 }
-
 impl From<auto_proc_program_attachment::Model> for AutoProcFileAttachment {
     fn from(value: auto_proc_program_attachment::Model) -> Self {
         Self {
@@ -140,6 +140,19 @@ impl From<auto_proc_program_attachment::Model> for AutoProcFileAttachment {
             file_name: value.file_name,
             file_path: value.file_path,
         }
+    }
+}
+
+impl AutoProcFileAttachment {
+    /// S3 bucket object key
+    pub fn object_key(&self) -> String {
+        let mut key = std::path::PathBuf::from(
+            <Option<String> as Clone>::clone(&self.file_path)
+                .unwrap()
+                .to_string(),
+        );
+        key.push(<Option<String> as Clone>::clone(&self.file_name).unwrap());
+        key.to_string_lossy().to_string()
     }
 }
 
@@ -269,19 +282,6 @@ impl From<auto_proc_scaling_statistics::Model> for AutoProcScalingStatics {
             cc_anomalous: value.cc_anomalous,
             scaling_statistics_type: StatisticsType::from(value.scaling_statistics_type),
         }
-    }
-}
-
-impl AutoProcFileAttachment {
-    /// S3 bucket object key
-    pub fn object_key(&self) -> String {
-        let mut key = std::path::PathBuf::from(
-            <Option<String> as Clone>::clone(&self.file_path)
-                .unwrap()
-                .to_string(),
-        );
-        key.push(<Option<String> as Clone>::clone(&self.file_name).unwrap());
-        key.to_string_lossy().to_string()
     }
 }
 

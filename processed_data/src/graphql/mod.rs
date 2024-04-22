@@ -5,7 +5,7 @@ use async_graphql::{
     dataloader::{DataLoader, Loader},
     ComplexObject, Context, EmptyMutation, EmptySubscription, Object, Schema, SchemaBuilder,
 };
-use aws_sdk_s3::{presigning::PresigningConfig, Client};
+use aws_sdk_s3::presigning::PresigningConfig;
 use entities::{
     AutoProcFileAttachment, AutoProcScalingStatics, AutoProcessing, DataCollection, ProcessingJob,
     StatisticsType,
@@ -29,23 +29,13 @@ pub type RootSchema = Schema<Query, EmptyMutation, EmptySubscription>;
 /// router handler extension
 pub trait AddDataLoadersExt {
     /// Adds dataloader to graphql request
-    fn add_data_loaders(
-        self,
-        database: DatabaseConnection,
-        s3_client: Client,
-        s3_bucket: S3Bucket,
-    ) -> Self;
+    fn add_data_loaders(self, database: DatabaseConnection) -> Self;
 }
 
 impl AddDataLoadersExt for async_graphql::Request {
-    fn add_data_loaders(
-        self,
-        database: DatabaseConnection,
-        s3_client: Client,
-        s3_bucket: S3Bucket,
-    ) -> Self {
+    fn add_data_loaders(self, database: DatabaseConnection) -> Self {
         self.data(DataLoader::new(
-            FileAttachmentDataLoader::new(database.clone(), s3_client, s3_bucket),
+            FileAttachmentDataLoader::new(database.clone()),
             tokio::spawn,
         ))
         .data(DataLoader::new(
@@ -77,8 +67,6 @@ pub struct Query;
 pub struct FileAttachmentDataLoader {
     database: DatabaseConnection,
     parent_span: Span,
-    s3_client: Client,
-    s3_bucket: S3Bucket,
 }
 /// DataLoader for Process Job
 #[allow(clippy::missing_docs_in_private_items)]
@@ -111,12 +99,10 @@ impl ProcessingJobDataLoader {
 
 #[allow(clippy::missing_docs_in_private_items)]
 impl FileAttachmentDataLoader {
-    fn new(database: DatabaseConnection, s3_client: Client, s3_bucket: S3Bucket) -> Self {
+    fn new(database: DatabaseConnection) -> Self {
         Self {
             database,
             parent_span: Span::current(),
-            s3_client,
-            s3_bucket,
         }
     }
 }
@@ -373,25 +359,6 @@ impl DataCollection {
 }
 
 #[ComplexObject]
-impl AutoProcFileAttachment {
-    /// Gives downloadable link for the processed image in the s3 bucket
-    async fn file_url(&self, ctx: &Context<'_>) -> async_graphql::Result<String> {
-        let s3_client = ctx.data::<aws_sdk_s3::Client>()?;
-        let bucket = ctx.data::<S3Bucket>()?;
-        let object_uri = s3_client
-            .get_object()
-            .bucket(bucket.clone())
-            .key(self.object_key())
-            .presigned(PresigningConfig::expires_in(Duration::from_secs(10 * 60))?)
-            .await?
-            .uri()
-            .clone();
-        let object_url = Url::parse(&object_uri.to_string())?;
-        Ok(object_url.to_string())
-    }
-}
-
-#[ComplexObject]
 impl AutoProcessing {
     /// Fetches the overall scaling statistics type
     async fn overall(
@@ -439,6 +406,25 @@ impl AutoProcessing {
             Some(id) => loader.load_one(id).await,
             None => Ok(None),
         }
+    }
+}
+
+#[ComplexObject]
+impl AutoProcFileAttachment {
+    /// Gives downloadable link for the processed image in the s3 bucket
+    async fn file_url(&self, ctx: &Context<'_>) -> async_graphql::Result<String> {
+        let s3_client = ctx.data::<aws_sdk_s3::Client>()?;
+        let bucket = ctx.data::<S3Bucket>()?;
+        let object_uri = s3_client
+            .get_object()
+            .bucket(bucket.clone())
+            .key(self.object_key())
+            .presigned(PresigningConfig::expires_in(Duration::from_secs(10 * 60))?)
+            .await?
+            .uri()
+            .clone();
+        let object_url = Url::parse(&object_uri.to_string())?;
+        Ok(object_url.to_string())
     }
 }
 
