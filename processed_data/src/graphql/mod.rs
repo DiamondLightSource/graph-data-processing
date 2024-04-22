@@ -5,7 +5,7 @@ use async_graphql::{
     dataloader::{DataLoader, Loader},
     ComplexObject, Context, EmptyMutation, EmptySubscription, Object, Schema, SchemaBuilder,
 };
-use aws_sdk_s3::presigning::PresigningConfig;
+use aws_sdk_s3::{presigning::PresigningConfig, Client};
 use entities::{
     AutoProcFileAttachment, AutoProcScalingStatics, AutoProcessing, DataCollection, ProcessingJob,
     StatisticsType,
@@ -29,13 +29,23 @@ pub type RootSchema = Schema<Query, EmptyMutation, EmptySubscription>;
 /// router handler extension
 pub trait AddDataLoadersExt {
     /// Adds dataloader to graphql request
-    fn add_data_loaders(self, database: DatabaseConnection) -> Self;
+    fn add_data_loaders(
+        self,
+        database: DatabaseConnection,
+        s3_client: Client,
+        s3_bucket: S3Bucket,
+    ) -> Self;
 }
 
 impl AddDataLoadersExt for async_graphql::Request {
-    fn add_data_loaders(self, database: DatabaseConnection) -> Self {
+    fn add_data_loaders(
+        self,
+        database: DatabaseConnection,
+        s3_client: Client,
+        s3_bucket: S3Bucket,
+    ) -> Self {
         self.data(DataLoader::new(
-            FileAttachmentDataLoader::new(database.clone()),
+            FileAttachmentDataLoader::new(database.clone(), s3_client, s3_bucket),
             tokio::spawn,
         ))
         .data(DataLoader::new(
@@ -67,6 +77,8 @@ pub struct Query;
 pub struct FileAttachmentDataLoader {
     database: DatabaseConnection,
     parent_span: Span,
+    s3_client: Client,
+    s3_bucket: S3Bucket,
 }
 /// DataLoader for Process Job
 #[allow(clippy::missing_docs_in_private_items)]
@@ -99,10 +111,12 @@ impl ProcessingJobDataLoader {
 
 #[allow(clippy::missing_docs_in_private_items)]
 impl FileAttachmentDataLoader {
-    fn new(database: DatabaseConnection) -> Self {
+    fn new(database: DatabaseConnection, s3_client: Client, s3_bucket: S3Bucket) -> Self {
         Self {
             database,
             parent_span: Span::current(),
+            s3_client,
+            s3_bucket,
         }
     }
 }

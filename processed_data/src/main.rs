@@ -144,7 +144,12 @@ async fn setup_database(database_url: Url) -> Result<DatabaseConnection, Transac
 }
 
 /// Creates an [`axum::Router`] serving GraphiQL, synchronous GraphQL and GraphQL subscriptions
-fn setup_router(schema: RootSchema, database: DatabaseConnection) -> Router {
+fn setup_router(
+    schema: RootSchema,
+    database: DatabaseConnection,
+    s3_client: aws_sdk_s3::Client,
+    s3_bucket: S3Bucket,
+) -> Router {
     #[allow(clippy::missing_docs_in_private_items)]
     const GRAPHQL_ENDPOINT: &str = "/";
 
@@ -154,7 +159,7 @@ fn setup_router(schema: RootSchema, database: DatabaseConnection) -> Router {
             get(Html(
                 GraphiQLSource::build().endpoint(GRAPHQL_ENDPOINT).finish(),
             ))
-            .post(GraphQLHandler::new(schema, database)),
+            .post(GraphQLHandler::new(schema, database, s3_client, s3_bucket)),
         )
         .layer(OtelInResponseLayer)
         .layer(OtelAxumLayer::default())
@@ -242,12 +247,9 @@ async fn main() {
         Cli::Serve(args) => {
             setup_telemetry(args.log_level, args.otel_collector_url).unwrap();
             let database = setup_database(args.database_url).await.unwrap();
-            let s3_client = aws_sdk_s3::Client::from_s3_client_args(args.s3_client);
-            let schema = root_schema_builder()
-                .data(s3_client)
-                .data(args.s3_bucket)
-                .finish();
-            let router = setup_router(schema, database);
+            let s3_client = Client::from_s3_client_args(args.s3_client);
+            let schema = root_schema_builder().finish();
+            let router = setup_router(schema, database, s3_client, args.s3_bucket);
             serve(router, args.port).await.unwrap();
         }
         Cli::Schema(args) => {

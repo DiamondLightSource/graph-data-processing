@@ -3,9 +3,9 @@ kind: ConfigMap
 metadata:
  name: s3-config
 data:
- VAR1: "value1"
- VAR2: "value2"
- S3_ENDPOINT_URL: https://sci-nas-s3.diamond.ac.uk
- S3_ACCESS_KEY_ID: Q4W2I1611M39852X707W
+# S3_ENDPOINT_URL: https://sci-nas-s3.diamond.ac.uk
+ #S3_ACCESS_KEY_ID: Q4W2I1611M39852X707W
+ S3_ENDPOINT_URL: https://data-gateway.diamond.ac.uk
+ S3_ACCESS_KEY_ID: test
  S3_REGION: default
- S3_BUCKET: k8s-workflows
+ S3_BUCKET: data-collection

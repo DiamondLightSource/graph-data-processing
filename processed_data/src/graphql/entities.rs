@@ -124,10 +124,10 @@ pub struct AutoProcFileAttachment {
     /// Type of file attachment
     pub file_type: Option<AttachmentFileType>,
     /// Full name of the file
-    // #[graphql(skip)]
+    #[graphql(skip)]
     pub file_name: Option<String>,
     /// Path of the file stored in the file system
-    // #[graphql(skip)]
+    #[graphql(skip)]
     pub file_path: Option<String>,
 }
 

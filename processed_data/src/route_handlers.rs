@@ -10,7 +10,7 @@ use axum::{
 use sea_orm::DatabaseConnection;
 use std::{future::Future, pin::Pin};
 
-use crate::graphql::AddDataLoadersExt;
+use crate::{graphql::AddDataLoadersExt, S3Bucket};
 
 /// An [`Handler`] which executes an [`Executor`] including the [`Authorization<Bearer>`] in the [`async_graphql::Context`]
 #[derive(Debug, Clone)]
@@ -19,12 +19,26 @@ pub struct GraphQLHandler<E: Executor> {
     executor: E,
     /// Database connection
     database: DatabaseConnection,
+    /// S3 client
+    s3_client: aws_sdk_s3::Client,
+    /// S3 Bucket
+    s3_bucket: S3Bucket,
 }
 
 impl<E: Executor> GraphQLHandler<E> {
     /// Constructs an instance of the handler with the provided schema.
-    pub fn new(executor: E, database: DatabaseConnection) -> Self {
-        Self { executor, database }
+    pub fn new(
+        executor: E,
+        database: DatabaseConnection,
+        s3_client: aws_sdk_s3::Client,
+        s3_bucket: S3Bucket,
+    ) -> Self {
+        Self {
+            executor,
+            database,
+            s3_client,
+            s3_bucket,
+        }
     }
 }
 
@@ -40,7 +54,11 @@ where
             match request {
                 Ok(request) => GraphQLResponse::from(
                     self.executor
-                        .execute(request.into_inner().add_data_loaders(self.database))
+                        .execute(request.into_inner().add_data_loaders(
+                            self.database,
+                            self.s3_client,
+                            self.s3_bucket,
+                        ))
                         .await,
                 )
                 .into_response(),
