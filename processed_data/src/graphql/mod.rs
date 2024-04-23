@@ -411,7 +411,7 @@ impl AutoProcessing {
 
 #[ComplexObject]
 impl AutoProcFileAttachment {
-    /// Gives downloadable link for the processed image in the s3 bucket
+    /// Generate downloadable link for files in s3 bucket
     async fn file_url(&self, ctx: &Context<'_>) -> async_graphql::Result<String> {
         let s3_client = ctx.data::<aws_sdk_s3::Client>()?;
         let bucket = ctx.data::<S3Bucket>()?;

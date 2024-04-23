@@ -29,7 +29,7 @@ use std::{
 };
 use tokio::net::TcpListener;
 use tracing::{info, instrument};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_subscriber::{filter::FilterFn, layer::SubscriberExt, util::SubscriberInitExt};
 use url::Url;
 
 use crate::route_handlers::GraphQLHandler;
@@ -174,6 +174,10 @@ fn setup_telemetry(
     log_level: tracing::Level,
     otel_collector_url: Option<Url>,
 ) -> Result<(), anyhow::Error> {
+    let custom_filter = FilterFn::new(|metadata| {
+        !metadata.target().contains("aws_smithy_runtime")
+            && !metadata.target().contains("aws_credential_types")
+    });
     let level_filter = tracing_subscriber::filter::LevelFilter::from_level(log_level);
     let log_layer = tracing_subscriber::fmt::layer();
     let service_name_resource = opentelemetry_sdk::Resource::new(vec![
@@ -224,6 +228,7 @@ fn setup_telemetry(
     };
 
     tracing_subscriber::Registry::default()
+        .with(custom_filter)
         .with(level_filter)
         .with(log_layer)
         .with(metrics_layer)
